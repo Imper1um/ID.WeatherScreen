@@ -117,3 +117,61 @@ sudo systemctl daemon-reexec
 sudo systemctl enable idweatherscreen.service
 sudo systemctl start idweatherscreen.service
 ```
+
+## Background Images & EXIF Classification
+
+The `ID.WeatherStation` dashboard dynamically selects a background image that matches the current weather and time of day. To function properly, the following must be observed:
+
+### 1. Required Folder and Formats
+
+You must place at least one image (`.jpg`, `.jpeg`, or `.png`) into the following directory:
+
+```
+/assets/backgrounds
+```
+
+Due to licensing restrictions, no default backgrounds are included in this repository. You are responsible for supplying your own images.
+
+### 2. Image Tagging for Weather-Based Selection
+
+To allow the system to intelligently choose an image based on weather conditions, each image must be tagged with appropriate EXIF metadata, depending on the file type:
+
+- JPEG/JPG: Tags are stored in the `Keywords` field.
+- PNG: Tags are stored in the `Tags` field.
+
+Each image must include:
+
+- Time Tag (choose one):
+  - `Daylight`, `Night`, `Sunrise`, `Sunset`
+- Weather Tag (choose one):
+  - `Clear`, `PartlyCloudy`, `Overcast`, `Foggy`, `Lightning`, `LightRain`, `MediumRain`, `HeavyRain`, `Snow`
+
+If images are not properly tagged, they will not be considered for weather/time selection.
+
+You may use tools like ExifTool to manually apply these tags.
+
+### 3. Automatic Tagging with ChatGPT (Optional)
+
+If you set up `CHATGPT_KEY` with a valid OpenAI API key, the system will automatically tag new images:
+
+- Place your untagged images in:
+  ```
+  /assets/unprocessed
+  ```
+- The application will analyze each image using GPT, determine the appropriate tags, encode the EXIF metadata, and move the processed image to:
+  ```
+  /assets/backgrounds
+  ```
+
+This automated classification process is optional but highly recommended for large image sets.
+
+### 4. Fallback Behavior
+
+If no images match the current weather and time requirements, the dashboard will:
+
+- Randomly select any image from `/assets/backgrounds`, regardless of its tags.
+- This is the only scenario where improperly tagged images may be used.
+
+### 5. Recommended Image Size
+
+Images should ideally match the resolution of your display (for example, 1920x1080 for 1080p screens), but non-matching resolutions are still supported.
