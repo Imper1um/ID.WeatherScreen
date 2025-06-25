@@ -122,6 +122,7 @@ class WeatherService:
         nowUtc = datetime.now(timezone.utc)
         yesterday = now - timedelta(days=1)
         nowHour = nowUtc.replace(minute=0,second=0,microsecond=0)
+        self.Log.debug(F"QueryHistoryData: Querying {now} and {yesterday}...")
 
         observations = []
         datesComplete = defaultdict(int)
@@ -135,18 +136,25 @@ class WeatherService:
                 "numericPrecision": "decimal",
                 "date": date.strftime("%Y%m%d")
             }
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0'
+            }
 
             try:
                 isDayDone = False
                 tries = 0
 
                 while (not isDayDone and tries < 3):
-                    response = requests.get(self.StationHistoryUrl, params=params)
+                    response = requests.get(self.StationHistoryUrl, params=params, headers=headers)
                     response.raise_for_status()
                     data = response.json()
                     tries += 1
 
                     lastHour = nowUtc - timedelta(hours=48)
+                    self.Log.debug(F"{len(data['observations'])} records found for {date}")
+                    if (self.EnableTrace):
+                        self.Log.debug(data)
+                        self.Log.debug("----")
 
                     thisComplete = defaultdict(int)
 
@@ -161,8 +169,9 @@ class WeatherService:
                         observations.extend(data["observations"])
                     if len(thisComplete.keys()) < 23 and not now == date:
                         self.Log.warn(F"Less than 23 hours were provided ({len(thisComplete.keys())} and it is not a today!) ")
-                        self.Log.debug(data)
-                        self.Log.debug(params)
+                        if (self.EnableTrace):
+                            self.Log.debug(data)
+                            self.Log.debug(params)
                     
                     isDayDone = True
                     for d in datesComplete.keys():
@@ -174,17 +183,19 @@ class WeatherService:
                             isDayDone = False
                             self.Log.warn(f"WUnderground only produced {datesComplete[d]} records for UTC {d}! Trying this day again.")
 
-                    for d in datesComplete.keys():
-                        self.Log.debug(F"datesComplete ({date}): {d} = {datesComplete[d]}")
-                    for d in thisComplete.keys():
-                        self.Log.debug(F"thisComplete ({date}): {d} = {datesComplete[d]}")
+                    if (self.EnableTrace):
+                        for d in datesComplete.keys():
+                            self.Log.debug(F"datesComplete ({date}): {d} = {datesComplete[d]}")
+                        for d in thisComplete.keys():
+                            self.Log.debug(F"thisComplete ({date}): {d} = {datesComplete[d]}")
 
             except requests.RequestException as e:
                 self.Log.warn(f"Failed to fetch WUnderground station history data: {e}")
                 continue
         
-        for d in datesComplete.keys():
-            self.Log.debug(F"datesComplete: {d} = {datesComplete[d]}")
+        if (self.EnableTrace):
+            for d in datesComplete.keys():
+                self.Log.debug(F"datesComplete: {d} = {datesComplete[d]}")
 
         now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         expected_hours = {now - timedelta(hours=i) for i in range(24)}
@@ -308,9 +319,9 @@ class WeatherService:
         }
 
     def ParseForecastData(self, data):
-        #if (self.EnableTrace):
-        self.Log.debug(F"ParseForecastData: {data}")
-        self.Log.debug("----")
+        if (self.EnableTrace):
+            self.Log.debug(F"ParseForecastData: {data}")
+            self.Log.debug("----")
         Latitude = data["location"]["lat"]
         Longitude = data["location"]["lon"]
         TodayDates = self.QuerySunData(Latitude, Longitude, "today")

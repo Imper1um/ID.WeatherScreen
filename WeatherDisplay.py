@@ -525,37 +525,37 @@ class WeatherDisplay:
         self.WeatherData["History"] = historicalData;
         self.DebugBuckets("GrabHistoricalData");
 
-    def RefreshStationData(self):
+    def AppendToHistory(self):
         now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=26)
+        currentData = self.WeatherData["Current"];
+
+        self.DebugBuckets("RefreshStationdata Pre-Append")
+        self.WeatherData["History"].append((now, currentData))
+        self.DebugBuckets("RefreshStationdata Post-Append")
+        newHistory = []
+        for (timestamp, content) in self.WeatherData["History"]:
+            if (timestamp >= cutoff):
+                newHistory.append((timestamp,content))
+
+        self.WeatherData["History"] = newHistory
+        self.DebugBuckets("RefreshStationdata Post-Filter")
+
+    def RefreshStationData(self):
         currentData = self.WeatherService.OverlayStationData(self.WeatherData["Current"])
 
         self.WeatherData["Current"] = currentData
-        self.DebugBuckets("RefreshStationData Pre-Append")
-        self.WeatherData["History"].append((now, currentData))
-        self.DebugBuckets("RefreshStationData Post-Append")
-        cutoff = now - timedelta(hours=24)
-        self.WeatherData["History"] = [
-            (timestamp, data) for (timestamp, data) in self.WeatherData["History"]
-            if timestamp >= cutoff
-        ]
-        self.DebugBuckets("RefreshStationData Cutoff")
+        self.AppendToHistory()
+
         if (self.EnableTrace):
             self.Log.debug(F"RefreshStationData: {self.WeatherData['Current']}")
         self.Root.after(60 * 1000, self.RefreshStationData)
         
     def RefreshCurrentData(self):
-        now = datetime.now(timezone.utc)
         currentData = self.WeatherService.GetCurrentData()
         self.WeatherData["Current"] = currentData
-        self.DebugBuckets("RefreshStationData Pre-Append")
-        self.WeatherData["History"].append((now, currentData))
-        self.DebugBuckets("RefreshStationData Post-Append")
-        cutoff = now - timedelta(hours=24)
-        self.WeatherData["History"] = [
-            (timestamp, data) for (timestamp, data) in self.WeatherData["History"]
-            if timestamp >= cutoff
-        ]
-        self.DebugBuckets("RefreshStationData Post-Cutoff")
+        self.AppendToHistory()
+
         if (self.EnableTrace):
             self.Log.debug(F"RefreshCurrentData: {currentData}")
         self.ChangeBackgroundImage()
@@ -638,9 +638,9 @@ class WeatherDisplay:
 
     def RefreshForecastData(self):
         self.WeatherData["Forecast"] = self.WeatherService.GetForecastData()
-        #if (self.EnableTrace):
-        self.Log.debug(F"RefreshForecastData: {self.WeatherData['Forecast']}")
-        self.Log.debug("----")
+        if (self.EnableTrace):
+            self.Log.debug(F"RefreshForecastData: {self.WeatherData['Forecast']}")
+            self.Log.debug("----")
 
         self.Root.after(60 * 60 * 1000, self.RefreshForecastData)
             
