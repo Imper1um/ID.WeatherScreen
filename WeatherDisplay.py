@@ -275,14 +275,22 @@ class WeatherDisplay:
         secondsPerPixel = 86400 / gradientWidth
         colorPixels = self.CalculateMinuteGradients(gradientWidth)
         now = datetime.now()
+        gradientHeight = 35
         secondsPastHour = now.minute * 60 + now.second
+
+        firstHour = datetime.strptime(forecast[0]["Time"], "%Y-%m-%d %H:%M")
+        currentHour = now.replace(minute=0,second=0,microsecond=0)
+
+        if (firstHour < currentHour):
+            secondsPastHour += 60 * 60
+
         pushRight = int(secondsPastHour / secondsPerPixel) + x_start
         i = 0
         for pixel in colorPixels:
-            if (pushRight + i > gradientWidth):
+            if (pushRight + i > gradientWidth + bar_spacing):
                 continue
             fillColor = f"#{pixel[0]:02x}{pixel[1]:02x}{pixel[2]:02x}"
-            self.canvas.create_line(pushRight + i, y_base + bar_max_height, pushRight + i, y_base + bar_max_height + 10, fill=fillColor)
+            self.canvas.create_line(pushRight + i, y_base + bar_max_height, pushRight + i, y_base + bar_max_height + gradientHeight, fill=fillColor)
             i += 1
 
         max_rain = 100  # Max rain chance is 100%
@@ -308,7 +316,7 @@ class WeatherDisplay:
             )
 
             self.CreateTextWithStroke(hour_label, DailyFont, x + 2 + bar_width // 2, y_base - 24, anchor="n")
-            self.CreateTextWithStroke(WeatherEmoji["Emoji"], WeatherEmojiFront, x + 2 + bar_width // 2, y_base + 110, anchor="n",mainFill=WeatherEmoji["Color"])
+            self.CreateTextWithStroke(WeatherEmoji["Emoji"], WeatherEmojiFront, x + 2 + bar_width // 2, y_base + 104, anchor="n",mainFill=WeatherEmoji["Color"])
             
             if rain_amount > 0:
                 self.CreateTextWithStroke(f"{rain_amount}\"", RainAmountFont, x + 2 + bar_width // 2, y_base - 40, anchor="n")
