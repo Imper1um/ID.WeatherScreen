@@ -8,6 +8,7 @@ import random
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime, timedelta, timezone
+from dateutil import tz
 from PIL import Image, ImageTk
 from pathlib import Path
 from collections import defaultdict
@@ -46,6 +47,7 @@ class WeatherDisplay:
         self.forecast_labels = {}
         self.canvas = tk.Canvas(self.Root, width=1920, height=1080, bg="#0f0", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
+        self.Begin = datetime.now()
 
         self.CheckBackgroundImages()
     def CheckBackgroundImages(self):
@@ -67,6 +69,27 @@ class WeatherDisplay:
         uname = platform.uname()
         self.Log.debug(F"IsRaspberryPi: {platform.system()} == 'Linux' and '{uname.machine}'.startswith('aarch') == {uname.machine.startswith('aarch')}")
         return platform.system() == "Linux" and uname.machine.startswith("aarch")
+
+    def GetUptimeString(self) -> str:
+        delta = datetime.now() - self.Begin
+        totalSeconds = int(delta.total_seconds())
+
+        days = totalSeconds // 86400
+        hours = (totalSeconds % 86400) // 3600
+        minutes = (totalSeconds % 3600) // 60
+        seconds = totalSeconds % 60
+
+        parts = []
+        if (days > 0):
+            parts.append(f"{days}d")
+        if hours > 0 or days > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0 or hours > 0 or days > 0:
+            parts.append(f"{minutes}s")
+        parts.append(f"{seconds}s")
+
+        return ' '.join(parts)
+        
 
     def RefreshScreen(self):
         now = datetime.now()
@@ -95,8 +118,10 @@ class WeatherDisplay:
         self.CreateTextWithStroke(FullDate, FontBig, 30, 90)
         self.CreateTextWithStroke(FullTime, FontHuge, 400, 30)
         lastUpdated = self.WeatherData["Current"]["LastUpdate"].strftime("%Y-%m-%d %I:%M:%S %p")
+        uptime = self.GetUptimeString()
         observed = self.WeatherData["Current"]["ObservedTimeLocal"].strftime("%Y-%m-%d %I:%M:%S %p")
         source = self.WeatherData["Current"]["Source"]
+        self.canvas.create_text(1900, 1000, text=F"Uptime: {uptime}",fill="#777",anchor="e")
         self.canvas.create_text(1900, 980, text=F"Last Updated: {lastUpdated}",fill="#777",anchor="e")
         self.canvas.create_text(1900, 960, text=F"Observed: {observed}",fill="#777",anchor="e")
         self.canvas.create_text(1900, 940, text=F"Source: {source}",fill="#777",anchor="e")
@@ -246,6 +271,20 @@ class WeatherDisplay:
         WeatherEmojiFront = (self.EmojiFont, 14)
         HasRain = False
 
+        gradientWidth = (bar_width + bar_spacing) * 24
+        secondsPerPixel = 86400 / gradientWidth
+        colorPixels = self.CalculateMinuteGradients(gradientWidth)
+        now = datetime.now()
+        secondsPastHour = now.minute * 60 + now.second
+        pushRight = int(secondsPastHour / secondsPerPixel) + x_start
+        i = 0
+        for pixel in colorPixels:
+            if (pushRight + i > gradientWidth):
+                continue
+            fillColor = f"#{pixel[0]:02x}{pixel[1]:02x}{pixel[2]:02x}"
+            self.canvas.create_line(pushRight + i, y_base + bar_max_height, pushRight + i, y_base + bar_max_height + 10, fill=fillColor)
+            i += 1
+
         max_rain = 100  # Max rain chance is 100%
         for i, hour_data in enumerate(forecast[:24]):
             rain_chance = hour_data.get("RainChance", 0)
@@ -274,12 +313,112 @@ class WeatherDisplay:
             if rain_amount > 0:
                 self.CreateTextWithStroke(f"{rain_amount}\"", RainAmountFont, x + 2 + bar_width // 2, y_base - 40, anchor="n")
 
+        
+
         self.canvas.create_line(x_start, y_base, x_start + ((bar_spacing + bar_width) * 24), y_base, fill="white")
         self.canvas.create_line(x_start, y_base + bar_max_height, x_start + ((bar_spacing + bar_width) * 24), y_base + bar_max_height, fill="white")
 
         if not HasRain:
             self.CreateTextWithStroke("No Rain Detected in the next 24 Hours", RainWarningFont, x_start + ((bar_width + bar_spacing) * 12), y_base + 25, anchor="n", mainFill="#0f0")
 
+    def ToLocalNaive(self, iso_string: str) -> datetime:
+        utc = datetime.fromisoformat(iso_string)
+        local = utc.astimezone(tz.tzlocal()).replace(tzinfo=None)
+        return local
+
+    def CalculateMinuteGradients(self, pixelWidth):
+        forecast = self.WeatherData["Forecast"]
+        secondsPerPixel = 86400 / pixelWidth
+
+        startTime = datetime.now().replace()
+        currentTime = startTime
+        pixels = 0
+        endTime = datetime.now() + timedelta(hours=24)
+
+        nightColor = (10,15,35) # Very Dark Blue
+        duskColor = (25,35,70)# Dark(ish) Blue
+        nauticalTwilightColor = (60,60,90)# Much Blue, Twinge of Orange
+        civilTwilightColor = (120,90,60) # Some Blue, Much Orange
+        dayColor = (135,206,235) # Light Blue
+        cloudGrayColor = (169, 169, 169)
+
+        times = [
+                {"Name": "Start", "Time": datetime.now().replace(hour=0,minute=0,second=0,microsecond=0), "Color": nightColor},
+                {"Name": "Dawn", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["AstronomicalTwilight"]) - timedelta(minutes=15), "Color": duskColor},
+                {"Name": "Astronomical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["AstronomicalTwilight"]), "Color": duskColor},
+                {"Name": "Nautical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["NauticalTwilight"]), "Color": nauticalTwilightColor},
+                {"Name": "Civil Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["CivilTwilight"]), "Color": civilTwilightColor},
+                {"Name": "Day", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["Day"]), "Color": dayColor},
+                {"Name": "Sunset", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["Start"]), "Color": dayColor},
+                {"Name": "Civil Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["CivilTwilight"]), "Color": civilTwilightColor},
+                {"Name": "Nautical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["NauticalTwilight"]), "Color": nauticalTwilightColor},
+                {"Name": "Dusk", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["AstronomicalTwilight"]), "Color": duskColor},
+                {"Name": "Night", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["AstronomicalTwilight"]) + timedelta(minutes=15), "Color": nightColor},
+    
+                {"Name": "Dawn", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["AstronomicalTwilight"]) - timedelta(minutes=15), "Color": duskColor},
+                {"Name": "Astronomical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["AstronomicalTwilight"]), "Color": duskColor},
+                {"Name": "Nautical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["NauticalTwilight"]), "Color": nauticalTwilightColor},
+                {"Name": "Civil Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["CivilTwilight"]), "Color": civilTwilightColor},
+                {"Name": "Day", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["Day"]), "Color": dayColor},
+                {"Name": "Sunset", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["Start"]), "Color": dayColor},
+                {"Name": "Civil Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["CivilTwilight"]), "Color": civilTwilightColor},
+                {"Name": "Nautical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["NauticalTwilight"]), "Color": nauticalTwilightColor},
+                {"Name": "Dusk", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["AstronomicalTwilight"]), "Color": duskColor},
+                {"Name": "Night", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["AstronomicalTwilight"]) + timedelta(minutes=15), "Color": nightColor},
+    
+                {"Name": "End", "Time": datetime.now().replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(hours=48), "Color": nightColor}
+            ]
+
+        iTime = 0
+        pixelTimes = []
+        while (currentTime < endTime):
+            currentTime = startTime + timedelta(seconds=secondsPerPixel * pixels)
+            iCur = times[iTime]
+            iNext = times[iTime + 1]
+            if (currentTime >= iNext["Time"]):
+                iTime += 1
+                iCur = times[iTime]
+                iNext = times[iTime + 1]
+            ratio = self.CalculateTimeRatio(currentTime, iCur["Time"], iNext["Time"])
+            color = self.CalculateColor(iCur["Color"], iNext["Color"], ratio)
+
+            leftBucket = currentTime.replace(minute=0,second=0,microsecond=0)
+            rightBucket = leftBucket + timedelta(hours = 1)
+            leftBucketCloud = self.GetCloudCover(leftBucket)
+            rightBucketCloud = self.GetCloudCover(rightBucket)
+            cloudRatio = self.CalculateTimeRatio(currentTime, leftBucket, rightBucket)
+            #color = self.CalculateColor(color, cloudGrayColor, cloudRatio)
+            pixelTimes.append(color)
+            pixels += 1
+
+        return pixelTimes
+
+    
+
+    def GetCloudCover(self, bucket: datetime) -> float:
+        bucketName = bucket.strftime("%Y-%m-%d %H:%M")
+        for h in self.WeatherData["Forecast"]["Next24Hours"]:
+            if (h["Time"] == bucketName):
+                return h["CloudCoverPercentage"] / 100
+        return 0
+
+    def CalculateTimeRatio(self, currentTime: datetime, time1: datetime, time2: datetime) -> float:
+        totalDuration = (time2 - time1).total_seconds()
+        elapsed = (currentTime - time1).total_seconds()
+        ratio = elapsed / totalDuration
+
+        return max(0.0, min(1.0, ratio))
+
+        
+    def CalculateColor(self, color1, color2, percent: float):
+        r = self.CalculateChannel(color1[0], color2[0], percent)
+        g = self.CalculateChannel(color1[1], color2[1], percent)
+        b = self.CalculateChannel(color1[2], color2[2], percent)
+
+        return (r,g,b)
+
+    def CalculateChannel(self, channel1, channel2, percent):
+        return int(channel1 + (channel2 - channel1) * percent)
 
     def DrawWindIndicator(self, x, y, direction_deg, speed_mph, gust_mph):
         radius = 100
