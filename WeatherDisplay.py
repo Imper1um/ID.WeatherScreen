@@ -296,17 +296,23 @@ class WeatherDisplay:
 
         pushRight = int(secondsPastHour / secondsPerPixel) + x_start
         i = 0
+        cloudHeight = 8
         for pixel in colorPixels:
             if (pushRight + i > gradientWidth + bar_spacing):
                 continue
-            fillColor = f"#{pixel[0]:02x}{pixel[1]:02x}{pixel[2]:02x}"
-            self.canvas.create_line(pushRight + i, y_base + bar_max_height, pushRight + i, y_base + bar_max_height + gradientHeight, fill=fillColor)
+            fillColor = f"#{pixel["Main"][0]:02x}{pixel["Main"][1]:02x}{pixel["Main"][2]:02x}"
+            cloudFillColor = f"#{pixel["Cloud"][0]:02x}{pixel["Cloud"][1]:02x}{pixel["Cloud"][2]:02x}"
+
+           
+            self.canvas.create_line(pushRight + i, y_base + bar_max_height, pushRight + i, y_base + bar_max_height + cloudHeight, fill=cloudFillColor)
+            self.canvas.create_line(pushRight + i, y_base + bar_max_height + cloudHeight, pushRight + i, y_base + bar_max_height + gradientHeight, fill=fillColor)
             i += 1
 
         max_rain = 100  # Max rain chance is 100%
         for i, hour_data in enumerate(forecast[:24]):
             rain_chance = hour_data.get("RainChance", 0)
             rain_amount = hour_data.get("PrecipitationInches", 0)
+            cloudCoverPercentage = hour_data.get("CloudCoverPercentage", 0)
             if rain_amount > 0:
                 HasRain = True
             
@@ -326,7 +332,12 @@ class WeatherDisplay:
             )
 
             self.CreateTextWithStroke(hour_label, DailyFont, x + 2 + bar_width // 2, y_base - 24, anchor="n")
-            self.CreateTextWithStroke(WeatherEmoji["Emoji"], WeatherEmojiFront, x + 2 + bar_width // 2, y_base + 104, anchor="n",mainFill=WeatherEmoji["Color"])
+            if (self.IsRaspberryPi):
+                self.canvas.create_text(x + 2 + bar_width // 2, y_base + 107, text=WeatherEmoji["Emoji"], font=WeatherEmojiFront, anchor="n")
+            else:
+                self.CreateTextWithStroke(WeatherEmoji["Emoji"], WeatherEmojiFront, x + 2 + bar_width // 2, y_base + 107, anchor="n",mainFill=WeatherEmoji["Color"])
+
+            self.CreateTextWithStroke(F"{cloudCoverPercentage}%", RainAmountFont, x + 2 + bar_width // 2, y_base + 135, anchor="n")
             
             if rain_amount > 0:
                 self.CreateTextWithStroke(f"{rain_amount}\"", RainAmountFont, x + 2 + bar_width // 2, y_base - 40, anchor="n")
@@ -404,9 +415,10 @@ class WeatherDisplay:
             rightBucket = leftBucket + timedelta(hours = 1)
             leftBucketCloud = self.GetCloudCover(leftBucket)
             rightBucketCloud = self.GetCloudCover(rightBucket)
-            cloudRatio = self.CalculateTimeRatio(currentTime, leftBucket, rightBucket)
-            #color = self.CalculateColor(color, cloudGrayColor, cloudRatio)
-            pixelTimes.append(color)
+            timeBetween = self.CalculateTimeRatio(currentTime, leftBucket, rightBucket)
+            cloudRatio = (1 - timeBetween) * leftBucketCloud + timeBetween * rightBucketCloud
+            cloudColor = self.CalculateColor(color, cloudGrayColor, cloudRatio)
+            pixelTimes.append({"Cloud": cloudColor, "Main": color})
             pixels += 1
 
         return pixelTimes
