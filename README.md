@@ -68,7 +68,8 @@ WUNDERGROUND_KEY      # Your API key for Weather Underground
 CHATGPT_KEY           # Your OpenAI API key – used for automated classification of weather background images
 LOCATION              # Location string (e.g., "Orlando, FL")
 WEATHER_STATION       # Specific station ID (e.g., "KFLORLAN65")
-ENABLE_TRACE=No       # Set to "Yes" to enable trace-level logging
+ENABLE_TRACE          # Set to "Yes" to enable trace-level logging
+ENABLE_IMAGETAGS      # Set to "Yes" to display image tags on the screen. This is so you can figure out if you're missing an image type.
 LOGGING_LEVEL=INFO    # Logging level: DEBUG, INFO, WARNING, etc.
 ```
 

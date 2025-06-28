@@ -64,6 +64,8 @@ if (not ENABLE_TRACE):
     PILLogger.setLevel(logging.WARNING)
     urllibLogger = logging.getLogger("urllib3.connectionpool")
     urllibLogger.setLevel(logging.WARNING)
+    pilPngLogger = logging.getLogger("PIL.PngImagePlugin")
+    pilPngLogger.setLevel(logging.WARNING)
 
 Log = logging.getLogger("ID.WeatherScreen")
 Log.info("Started.")

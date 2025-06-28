@@ -47,7 +47,7 @@ class WeatherEncoder:
         systemTag += " 2. If an image has Fog but no Rain or Lightning, always pick 'Foggy'"
         systemTag += " 3. If an image has Rain, pick the one that is the most likely; if there's almost no visibility or its mostly dark, pick 'HeavyRain'. If there's a lot of visibility and light, pick 'LightRain.' If its somewhere in the middle, pick 'MediumRain.'"
         systemTag += " 4. You MUST ONLY pick ONE item from the following list."
-        systemTag += " 5. You will be provided the file name of the image which can help determine the Timing and Weather Type."
+        systemTag += " 5. You will be provided the file name of the image which can help determine the Timing and Weather Type. If it has a Weather Type in the file name, use that Weather Type instead (so if a File has 'Foggy' in the file name, use 'Foggy')"
         systemTag += allConditionsItems
         systemTag += "Your output must be only in the format: <Timing>,<WeatherType> (For example, 'Daylight,Clear') Do not provide any additional output, or justification."
         self.Log.info(F"ProcessAllFiles: Encoding {len(ImageFiles)}...")

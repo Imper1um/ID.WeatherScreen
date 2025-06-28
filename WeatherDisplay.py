@@ -16,6 +16,7 @@ from collections import defaultdict
 class WeatherDisplay:
     def __init__(self, root, weatherService, weatherEncoder):
         self.EnableTrace = os.getenv("ENABLE_TRACE", "No") == "Yes"
+        self.EnableImageTagDisplay = os.getenv("ENABLE_IMAGETAGS", "No") == "Yes"
         self.Log = logging.getLogger("WeatherDisplay")
         self.BasePath = Path(__file__).resolve().parent
         self.Log.info(F"BasePath: {self.BasePath}")
@@ -48,6 +49,8 @@ class WeatherDisplay:
         self.canvas = tk.Canvas(self.Root, width=1920, height=1080, bg="#0f0", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         self.Begin = datetime.now()
+        self.ThisImageTags = None
+        self.ImageTagMessage = None
 
         self.CheckBackgroundImages()
     def CheckBackgroundImages(self):
@@ -125,6 +128,13 @@ class WeatherDisplay:
         self.canvas.create_text(1900, 980, text=F"Last Updated: {lastUpdated}",fill="#777",anchor="e")
         self.canvas.create_text(1900, 960, text=F"Observed: {observed}",fill="#777",anchor="e")
         self.canvas.create_text(1900, 940, text=F"Source: {source}",fill="#777",anchor="e")
+        if (self.EnableImageTagDisplay):
+            self.canvas.create_text(5, 10, text=F"Requested Image Tags: {self.LastBackgroundImageTags}", anchor="w")
+            self.canvas.create_text(400, 10, text=F"This Image Tags: {self.ThisImageTags}", anchor="w")
+            if (self.ImageTagMessage):
+                self.canvas.create_text(800, 10, text=F"Image Message: {self.ImageTagMessage}", anchor="w")
+
+
         if (self.WeatherData["Current"]["Source"] == "Station"):
             station = self.WeatherData["Current"]["StationID"]
             self.canvas.create_text(1900, 920, text=F"Station: {station}",fill="#777",anchor="e")
@@ -515,7 +525,7 @@ class WeatherDisplay:
         image_files = [
             os.path.join(image_dir, f)
             for f in os.listdir(image_dir)
-            if f.lower().endswith(".jpg")
+            if f.lower().endswith(".jpg") or f.lower().endswith(".png")
         ]
 
         if not image_files:
@@ -570,11 +580,15 @@ class WeatherDisplay:
             if (all(tag in img["Tags"] for tag in current_tags))
         ]
 
+        self.ImageTagMessage = ""
+
         if not MatchingImages:
             SelectedFile = random.choice(AllImages)
+            self.ImageTagMessage = "Could not find Matching Image"
         else:
             SelectedFile = random.choice(MatchingImages)
 
+        self.ThisImageTags = SelectedFile["Tags"]
         self.LastBackgroundImagePath = SelectedFile["Path"]
 
     def GetWeatherTags(self, time):
