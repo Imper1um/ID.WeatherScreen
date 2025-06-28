@@ -98,9 +98,12 @@ if len(os.listdir(imageDirectory)) == 0:
     Log.fatal("Unable to start: There are no backgrounds in the assets/backgrounds folder. You need to have at least one background (preferably 1920x1080) to make this work.")
     sys.exit()
 
-service = WeatherService(WEATHERAPI_KEY, LOCATION, WUNDERGROUND_KEY, WEATHER_STATION)
-root = tk.Tk()
-root.configure(bg="#00ff00")
-display = WeatherDisplay(root, service, weatherEncoder)
-display.StartDataRefresh()
-root.mainloop();
+try:
+    service = WeatherService(WEATHERAPI_KEY, LOCATION, WUNDERGROUND_KEY, WEATHER_STATION)
+    root = tk.Tk()
+    root.configure(bg="#00ff00")
+    display = WeatherDisplay(root, service, weatherEncoder)
+    display.StartDataRefresh()
+    root.mainloop();
+except:
+    Log.exception(F"There was a serious error that crashed the WeatherScreen.")

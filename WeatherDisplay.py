@@ -488,7 +488,7 @@ class WeatherDisplay:
             return {"Emoji": "⛅", "Color": "#FFE066"}  # Light Yellow/Cloud mix
         if "partly" in text:
             return {"Emoji": "🌤️", "Color": "#FFD966"}  # Warm sunny
-        if "sun" in text:
+        if "sun" in text or "clear":
             return {"Emoji": "☀️", "Color": "#FFA500"}  # Orange
         if "cloud" in text or "overcast" in text:
             return {"Emoji": "☁️", "Color": "#B0C4DE"}  # LightSteelBlue
