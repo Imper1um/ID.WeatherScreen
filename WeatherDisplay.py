@@ -19,7 +19,7 @@ class WeatherDisplay:
         self.EnableImageTagDisplay = os.getenv("ENABLE_IMAGETAGS", "No") == "Yes"
         self.Log = logging.getLogger("WeatherDisplay")
         self.BasePath = Path(__file__).resolve().parent
-        self.Log.info(F"BasePath: {self.BasePath}")
+        self.Log.debug(F"BasePath: {self.BasePath}")
         self.EmojiFont = "Segoe UI Emoji"
         if (self.IsRaspberryPi()):
             self.EmojiFont = "Noto Color Emoji"
@@ -300,8 +300,8 @@ class WeatherDisplay:
         for pixel in colorPixels:
             if (pushRight + i > gradientWidth + bar_spacing):
                 continue
-            fillColor = f"#{pixel["Main"][0]:02x}{pixel["Main"][1]:02x}{pixel["Main"][2]:02x}"
-            cloudFillColor = f"#{pixel["Cloud"][0]:02x}{pixel["Cloud"][1]:02x}{pixel["Cloud"][2]:02x}"
+            fillColor = f"#{pixel['Main'][0]:02x}{pixel['Main'][1]:02x}{pixel['Main'][2]:02x}"
+            cloudFillColor = f"#{pixel['Cloud'][0]:02x}{pixel['Cloud'][1]:02x}{pixel['Cloud'][2]:02x}"
 
            
             self.canvas.create_line(pushRight + i, y_base + bar_max_height, pushRight + i, y_base + bar_max_height + cloudHeight, fill=cloudFillColor)
@@ -528,7 +528,7 @@ class WeatherDisplay:
 
     def GetAllBackgroundImages(self):
         image_dir = os.path.join(self.BasePath, "assets", "backgrounds")
-        self.Log.info(F"image_dir: {image_dir}")
+        self.Log.debug(F"image_dir: {image_dir}")
         if not os.path.exists(image_dir):
             self.Log.warn(f"Background directory does not exist: {image_dir}")
             return []
