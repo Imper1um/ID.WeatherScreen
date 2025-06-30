@@ -254,7 +254,7 @@ class WeatherDisplay:
         coords = []
 
         for line in history.Lines:
-            utcTimestamp = line.ObservedTimeUtc
+            utcTimestamp = line.ObservedTimeUtc.replace(tzinfo=None)
             hourBucket = utcTimestamp.replace(minute=0,second=0,microsecond=0)
             if minTime <= hourBucket <= now:
                 hourlyTemps[hourBucket].append(line.CurrentTemp)
@@ -829,7 +829,7 @@ class WeatherDisplay:
         self.DebugBuckets("RefreshStationdata Post-Append")
         newHistory = []
         for line in self.HistoryData.Lines:
-            timestamp = line.ObservedTimeUtc
+            timestamp = line.ObservedTimeUtc.replace(tzinfo=None)
             if (timestamp >= cutoff):
                 newHistory.append(line)
 
