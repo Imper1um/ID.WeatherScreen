@@ -193,31 +193,92 @@ Main settings related to display and measurement preferences.
 
 These fields control how the system interprets and formats raw weather data.
 
-### `Weather` → Display Text Elements
+### Weather Screen Element Options
 
 These settings control the on-screen position and style of individual weather-related text elements. Each setting is an object with fields like:
 
+These options apply to all display options:
+
 - `X`, `Y`: Coordinates relative to the top-left of the screen (Tkinter coordinate system).
+- `Enabled`: Whether the element is drawn on the canvas.
+
+The following apply to each element type:
+
+#### Text
+
 - `FillColor`: Hex or named color (e.g. `"#FFF"`, `"red"`).
 - `FontFamily`: Optional font name.
 - `FontWeight`: Can be `"normal"` or `"bold"`.
 - `FontSize`: Size of the text in points.
 - `Anchor`: Text anchor (`"center"`, `"e"`, `"ne"`, etc.).
 - `Stroke`: If `True`, applies a 2px stroke outline around the text for better readability.
-- `Enabled`: Whether the element is drawn on the canvas.
 
-#### Common Elements
+#### Formatted (inherits from Text)
 
-- `ImageTags`: Debug element that shows the actual weather tags used to pick a background image. For instance, if the system wanted `["Cloudy", "Daylight"]` but got `["Lightning", "Night"]`, those would show here.
-- `Uptime`: Displays system uptime.
-- `LastUpdated`: Shows the time of the most recent data update.
-- `Observed`: Time of the observed weather report.
-- `Source`: Which data source provided the weather data.
-- `DayOfWeek`, `FullDate`, `Time`: Display current day/date/time with optional formatting.
-- `Station`: Shows the station name or ID.
-- `CurrentTempEmoji`: A weather-related emoji icon next to the temperature.
-- `CurrentTemp`: Displays the current temperature.
-- `FeelsLike`: Displays the "feels like" temperature.
-- `TempHigh` / `TempLow`: Displays high and low forecasted temperatures.
+- `Format`: For datetime Formatted Elements, this is how the text is formatted (see datetime.strftime for more info)
+
+#### Square
+
+- `Size`: The size (both X and Y) for that element.
+
+#### Sized
+
+- `Width`: The width (in pixels) how wide the element is.
+- `Height`: The height (in pixels) on how tall an element is.
+
+#### Nested Text Elements
+
+If Text is nested inside of another setting, `X` and `Y` are the offsets from the natural position inside the element (for example, in Wind Indicator, the X/Y offset from the normal location where the speed indicators are.)
+
+### Customizable Elements
+
+Debug Elements:
+
+- `ImageTags`: (Text) Debug display showing weather tags used vs. chosen background. (Default: Disabled) ![Screenshot](documentation/img/ImageTags.png)
+- `Uptime`: (Text) System runtime since application launch.
+
+Bottom-Right Elements:
+
+![Screenshot](documentation/img/Uptime.png)
+
+- `LastUpdated`: (Formatted) Displays the timestamp of the most recent data update.
+- `Observed`: (Formatted) Time the weather data was observed.
+- `Source`: (Text) The source that provided the current weather data.
+- `Station`: Shows the name or ID of the reporting station.
+
+Date Elements:
+
+![Screenshot](documentation/img/TopLeft.png)
+
+- `DayOfWeek`: (Text) The day of the week display.
+- `FullDate`, `Time`: (Formatted) Show date and time components.
+
+Temp Display Elements:
+
+![Screenshot](documentation/img/TopRight.png)
+
+- `CurrentTempEmoji`: (Text) Emoji icon for the current condition.
+- `CurrentTemp`, `FeelsLike`, `TempHigh`, `TempLow`: Current and forecasted temperatures.
+
+Individual Elements:
+
+![Screenshot](documentation/img/Squares.png)
+
+- `WindIndicator`: Circular widget showing wind speed, gust, direction, and **now includes faded arrows** for prior wind directions (`HistoryArrows` configurable).
+- `HumiditySquare`: Displays current humidity in a visual square with emoji and percentage label.
+- `RainSquare`: Shows current rain level visually, adjusting units based on precipitation setting.
+
+![Screenshot](documentation/img/RainForecast.png)
+
+- `RainForecast`: Bar-style graph for the next 24 hours of forecasted rain, including cloud cover, emoji, hourly rain amount, and a sunrise/sunset gradient.
+
+![Screenshot](documentation/img/TemperatureGraph.png)
+
+- `TemperatureGraph`: A smoothed temperature graph showing historical temps over the last 24 hours, connecting missing data gaps and colorizing based on value.
+
+> ⚠️ There is a known bug with the Observed WUnderground Temperature data. For some reason, it caches the History data improperly, and so when you query from Python, it is old data. I've let the WUnderground team know about this improper caching issue.
+
+**NOTE:** Updating the weatherscreen.config will change the weatherscreen within 5 seconds (usually ~2 seconds).
 
 Other Customizable elements will be added in the future.
+

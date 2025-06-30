@@ -97,7 +97,7 @@ class WeatherDisplay:
         if hours > 0 or days > 0:
             parts.append(f"{hours}h")
         if minutes > 0 or hours > 0 or days > 0:
-            parts.append(f"{minutes}s")
+            parts.append(f"{minutes}m")
         parts.append(f"{seconds}s")
 
         return ' '.join(parts)
