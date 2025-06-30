@@ -109,6 +109,9 @@ class WeatherUndergroundService:
         return history
 
     def ParseStationData(self, data) -> CurrentData:
+        if (not data or "observations" not in data):
+            return None
+
         obs = data["observations"][0]
         imperial = obs.get("imperial", {})
 

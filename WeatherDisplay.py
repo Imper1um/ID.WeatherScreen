@@ -241,7 +241,7 @@ class WeatherDisplay:
         self.canvas.create_line(x, y+height, x+width, y+height, fill="white", width=2, smooth=True)
         
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         
         minTime = now.replace(minute=0,second=0,microsecond=0) - timedelta(hours=24)
         maxTime = now.replace(minute=0,second=0,microsecond=0)
@@ -820,7 +820,7 @@ class WeatherDisplay:
         self.Root.after(int(delay), self.RefreshSunData)
 
     def AppendToHistory(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         cutoff = now - timedelta(hours=26)
         currentData = self.CurrentData;
 
