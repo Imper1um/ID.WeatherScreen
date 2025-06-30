@@ -8,19 +8,19 @@ import openai
 import exiftool
 import logging
 from pathlib import Path
+from WeatherConfig import WeatherConfig
 
 
 class WeatherEncoder:
-    def __init__(self, apiKey, model="gpt-4o"):
+    def __init__(self, config: WeatherConfig):
         self.Log = logging.getLogger("WeatherEncoder")
+        self.Config = config
         self.BasePath = Path(__file__).resolve().parent
         self.CheckPath = os.path.join(self.BasePath, "assets","unprocessed")
         self.ProcessedPath = os.path.join(self.BasePath, "assets","backgrounds")
-        self.Model = model
-        self.ApiKey = apiKey
-        self.Client = openai.OpenAI(api_key=apiKey)
-        self.EnableTrace = os.getenv("ENABLE_TRACE", "No") == "Yes"
-        
+
+    def GetClient(self):
+        return openai.OpenAI(api_key=self.Config.ChatGPTKey)
 
     def ProcessAllFiles(self):
         ImageFiles = [f for f in os.listdir(self.CheckPath)
@@ -50,6 +50,7 @@ class WeatherEncoder:
         systemTag += " 5. You will be provided the file name of the image which can help determine the Timing and Weather Type. If it has a Weather Type in the file name, use that Weather Type instead (so if a File has 'Foggy' in the file name, use 'Foggy')"
         systemTag += allConditionsItems
         systemTag += "Your output must be only in the format: <Timing>,<WeatherType> (For example, 'Daylight,Clear') Do not provide any additional output, or justification."
+        client = self.GetClient()
         self.Log.info(F"ProcessAllFiles: Encoding {len(ImageFiles)}...")
         for image in ImageFiles:
             self.Log.info(F"ProcessAllFiles: Encoding {image}...")
@@ -70,10 +71,12 @@ class WeatherEncoder:
                 Tags = None
                 numberTries = 0
                 while numberTries < 3 and not isValidResponse:
-                    ChatGPTResponse = self.Client.chat.completions.create(model=self.Model,messages=messages,max_tokens=100)
+                    ChatGPTResponse = client.chat.completions.create(model=self.Config.ChatGPTModel,messages=messages,max_tokens=100)
                     numberTries += 1
                     rawReply = ChatGPTResponse.choices[0].message.content.strip()
-                    self.Log.debug(F"ProcessAllFiles: ChatGPT said '{rawReply}'...")
+                    if (self.Config.Logging.EnableTrace):
+                        self.Log.debug(F"ProcessAllFiles: Sent to ChatGPT: {messages}")
+                        self.Log.debug(F"ProcessAllFiles: ChatGPT said '{rawReply}'...")
                     Tags = [t.strip() for t in rawReply.split(',')]
                     messages.append({"role":"assistant", "content": rawReply})
                     responseMessage = ""
@@ -88,7 +91,7 @@ class WeatherEncoder:
                         self.Log.warn(F"WeatherEncoder: ChatGPT didn't provide a Weather Type Tag.")
                     else:
                         isValidResponse = True
-                        self.Log.info(F"WeatherEncoder: ChatGPT Success!")
+                        self.Log.info(F"WeatherEncoder: ChatGPT Success! ChatGPT Tagged {image} with {Tags}")
                     if (not isValidResponse):
                         messages.append({"role":"user", "content": responseMessage})
 
@@ -103,7 +106,6 @@ class WeatherEncoder:
     def GetMimeType(self, filePath):
         mimeType, _ = mimetypes.guess_type(filePath)
         return mimeType or "application/octet-stream"
-                
 
     def EncodeImage(self, path, tags):
         tagString = "; ".join(tags)

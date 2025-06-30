@@ -21,10 +21,18 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="CurrentData.py" />
+    <Compile Include="ForecastData.py" />
+    <Compile Include="HistoryData.py" />
     <Compile Include="ID.WeatherScreen.py" />
+    <Compile Include="SunData.py" />
+    <Compile Include="SunriseSunsetService.py" />
+    <Compile Include="WeatherAPIService.py" />
+    <Compile Include="WeatherConfig.py" />
     <Compile Include="WeatherDisplay.py" />
     <Compile Include="WeatherEncoder.py" />
     <Compile Include="WeatherService.py" />
+    <Compile Include="WeatherUndergroundService.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="assets\" />

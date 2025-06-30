@@ -3,21 +3,19 @@ from pathlib import Path
 from WeatherService import WeatherService
 from WeatherDisplay import WeatherDisplay
 from WeatherEncoder import WeatherEncoder
+from WeatherConfig import WeatherConfig
 from datetime import datetime
 import tkinter as tk
 import logging
 import os
 import sys
 
-WEATHERAPI_KEY = os.getenv("WEATHERAPI_KEY")
-WUNDERGROUND_KEY = os.getenv("WUNDERGROUND_KEY")
-CHATGPT_KEY = os.getenv("CHATGPT_KEY")
+config = WeatherConfig.load()
+
 BASE_PATH = Path(__file__).resolve().parent
 
-LOCATION = os.getenv("LOCATION")
-WEATHER_STATION = os.getenv("WEATHER_STATION")
-ENABLE_TRACE = os.getenv("ENABLE_TRACE", "No") == "Yes"
-LEVEL = os.getenv("LOGGING_LEVEL", "INFO").upper()
+ENABLE_TRACE = config.Logging.EnableTrace
+LEVEL = config.Logging.LoggingLevel.upper()
 LOG_LEVEL = getattr(logging, LEVEL, logging.INFO)
 
 logDirectory = BASE_PATH / "logs"
@@ -70,21 +68,21 @@ if (not ENABLE_TRACE):
 Log = logging.getLogger("ID.WeatherScreen")
 Log.info("Started.")
 
-if not WEATHERAPI_KEY:
-    Log.fatal("Unable to start: There is no WEATHERAPI_KEY. This is needed to grab weather data.")
+if not config.Services.WeatherAPI.Key:
+    Log.fatal("Unable to start: There is no Services.WeatherAPI.Key. This is needed to grab weather data.")
     sys.exit() 
-if not LOCATION:
-    Log.fatal("Unable to start: There is no LOCATION. This is needed to determine where the weather data is coming from.")
+if not config.Weather.Location:
+    Log.fatal("Unable to start: There is no Weather.Location. This is needed to determine where the weather data is coming from.")
     sys.exit()
 
-if WEATHER_STATION and not WUNDERGROUND_KEY:
-    Log.warn("WEATHER_STATION is mentioned but there is no WUNDERGROUND_KEY. No weather updates can be made for this station. It doesn't prevent startup, but it will not show live data.")
+if config.Weather.StationCode and not config.Services.WeatherUnderground.Key:
+    Log.warn("Weather.StationCode is mentioned but there is no Services.WeatherUnderground.Key. No weather updates can be made for this station. It doesn't prevent startup, but it will not show live data.")
 
 weatherEncoder = None
-if not CHATGPT_KEY:
-    Log.info("No CHATGPT_KEY, so WeatherEncoder will not process unprocessed files!")
+if not config.ChatGPT.Key:
+    Log.info("No ChatGPT.Key, so WeatherEncoder will not process unprocessed files!")
 else:
-    weatherEncoder = WeatherEncoder(CHATGPT_KEY)
+    weatherEncoder = WeatherEncoder(config)
     try:
         weatherEncoder.ProcessAllFiles()
         Log.info("WeatherEncoder is online.")
@@ -100,12 +98,12 @@ if len(os.listdir(imageDirectory)) == 0:
     Log.fatal("Unable to start: There are no backgrounds in the assets/backgrounds folder. You need to have at least one background (preferably 1920x1080) to make this work.")
     sys.exit()
 
-try:
-    service = WeatherService(WEATHERAPI_KEY, LOCATION, WUNDERGROUND_KEY, WEATHER_STATION)
-    root = tk.Tk()
-    root.configure(bg="#00ff00")
-    display = WeatherDisplay(root, service, weatherEncoder)
-    display.StartDataRefresh()
-    root.mainloop();
-except:
-    Log.exception(F"There was a serious error that crashed the WeatherScreen.")
+#try:
+service = WeatherService(config)
+root = tk.Tk()
+root.configure(bg="#00ff00")
+display = WeatherDisplay(root, service, weatherEncoder, config)
+display.StartDataRefresh()
+root.mainloop();
+#except:
+ #   Log.exception(F"There was a serious error that crashed the WeatherScreen.")

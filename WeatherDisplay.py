@@ -1,22 +1,32 @@
 ﻿import json
-import exiftool
 import logging
 import math
 import os
 import platform
 import random
-import tkinter as tk
-from tkinter import ttk
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Optional
+
+import exiftool
 from dateutil import tz
 from PIL import Image, ImageTk
-from pathlib import Path
-from collections import defaultdict
+
+import tkinter as tk
+from tkinter import ttk
+
+from WeatherConfig import *
+from WeatherEncoder import WeatherEncoder
+from WeatherService import WeatherService
+from CurrentData import CurrentData
+from ForecastData import ForecastData, MoonPhase
+from HistoryData import HistoryData, HistoryLine
+from SunData import SunData
 
 class WeatherDisplay:
-    def __init__(self, root, weatherService, weatherEncoder):
-        self.EnableTrace = os.getenv("ENABLE_TRACE", "No") == "Yes"
-        self.EnableImageTagDisplay = os.getenv("ENABLE_IMAGETAGS", "No") == "Yes"
+    def __init__(self, root, weatherService: WeatherService, weatherEncoder: WeatherEncoder, weatherConfig: WeatherConfig):
+        self.Config = weatherConfig
         self.Log = logging.getLogger("WeatherDisplay")
         self.BasePath = Path(__file__).resolve().parent
         self.Log.debug(F"BasePath: {self.BasePath}")
@@ -27,11 +37,10 @@ class WeatherDisplay:
         self.FirstTry = True
         self.WeatherService = weatherService
         self.WeatherEncoder = weatherEncoder
-        self.WeatherData = {
-            "Current": {},
-            "Forecast": {},
-            "History": []
-        }
+        self.CurrentData: Optional[CurrentData] = None
+        self.ForecastData: Optional[ForecastData] = None
+        self.HistoryData: Optional[HistoryData] = None
+        self.SunData: Optional[SunData] = None
         self.LastBackgroundImageType = None
         self.LastBackgroundImageTags = None
         self.LastBackgroundImageChange = None
@@ -92,18 +101,84 @@ class WeatherDisplay:
         parts.append(f"{seconds}s")
 
         return ' '.join(parts)
+
+    def FormattedText(self, date: datetime, settings: FormattedTextElementSettings):
+        if (not settings.Enabled):
+            return
+        f = settings.Format
+        if "%-I" in f:
+            hour = date.hour
+            if (hour > 12):
+                hour -= 12
+            if (hour == 0):
+                hour = 12
+            f = f.replace("%-I", str(hour))
+
+        self.Text(date.strftime(f), settings)
+    
+    def Text(self, text: str, settings: TextElementSettings):
+        if (not settings.Enabled):
+            return
+
+        fontFamily = "Arial"
+        if (settings.FontFamily):
+            fontFamily = settings.FontFamily
+        fontSize = 12
+        if (settings.FontSize):
+            fontSize = settings.FontSize
+        fontWeight = "normal"
+        if (settings.FontWeight):
+            fontWeight = settings.FontWeight
+        font = (fontFamily, fontSize, fontWeight)
+        anchor = "nw"
+        if (settings.Anchor):
+            anchor = settings.Anchor
+
+        if (settings.Stroke):
+            s = {
+                "anchor": anchor,
+                "mainFill": settings.FillColor
+            }
+            s = {k: v for k, v in s.items() if v is not None}
+            self.CreateTextWithStroke(text, font, settings.X, settings.Y, **s)
+        else:
+            s = {
+                "fill": settings.FillColor,
+                "font": font,
+                "anchor": anchor
+            }
+            s = {k: v for k, v in s.items() if v is not None}
+            self.canvas.create_text(settings.X, settings.Y, text=text, **s)
+
+    def EmojiText(self, text: str, settings: TextElementSettings):
+        if (not settings.Enabled):
+            return
+
+        fontFamily = self.EmojiFont
+        fontSize = 12
+        if (settings.FontSize):
+            fontSize = settings.FontSize
+        fontWeight = "normal"
+        if (settings.FontWeight):
+            fontWeight = settings.FontWeight
+        font = (fontFamily, fontSize, fontWeight)
+        anchor = "nw"
+        if (settings.Anchor):
+            anchor = settings.Anchor
+
+        s = {
+            "fill": settings.FillColor,
+            "font": font,
+            "anchor": anchor
+        }
+        s = {k: v for k, v in s.items() if v is not None}
+        self.canvas.create_text(settings.X, settings.Y, text=text, **s)
+
         
 
     def RefreshScreen(self):
         now = datetime.now()
         DayOfWeek = now.strftime("%A")
-        FullDate = now.strftime("%B %d, %Y")
-        Hour = now.hour
-        if (Hour == 0):
-            Hour = 12
-        if (Hour > 12):
-            Hour = Hour - 12
-        FullTime = f"{Hour}:" + now.strftime("%M %p")
 
         FontBig = ("Arial", 40, "bold")
         FontHuge = ("Arial", 90)
@@ -117,49 +192,48 @@ class WeatherDisplay:
        
         self.canvas.delete("all")
         self.LoadBackgroundImage()
-        self.CreateTextWithStroke(DayOfWeek, FontBig, 30, 30)
-        self.CreateTextWithStroke(FullDate, FontBig, 30, 90)
-        self.CreateTextWithStroke(FullTime, FontHuge, 400, 30)
-        lastUpdated = self.WeatherData["Current"]["LastUpdate"].strftime("%Y-%m-%d %I:%M:%S %p")
+        self.Text(DayOfWeek, self.Config.Weather.DayOfWeek)
+        self.FormattedText(now, self.Config.Weather.FullDate)
+        self.FormattedText(now, self.Config.Weather.Time)
+        lastUpdated = self.CurrentData.LastUpdate.strftime("%Y-%m-%d %I:%M:%S %p")
         uptime = self.GetUptimeString()
-        observed = self.WeatherData["Current"]["ObservedTimeLocal"].strftime("%Y-%m-%d %I:%M:%S %p")
-        source = self.WeatherData["Current"]["Source"]
-        self.canvas.create_text(1900, 1000, text=F"Uptime: {uptime}",fill="#777",anchor="e")
-        self.canvas.create_text(1900, 980, text=F"Last Updated: {lastUpdated}",fill="#777",anchor="e")
-        self.canvas.create_text(1900, 960, text=F"Observed: {observed}",fill="#777",anchor="e")
-        self.canvas.create_text(1900, 940, text=F"Source: {source}",fill="#777",anchor="e")
-        if (self.EnableImageTagDisplay):
-            self.canvas.create_text(5, 10, text=F"Requested Image Tags: {self.LastBackgroundImageTags}", anchor="w")
-            self.canvas.create_text(400, 10, text=F"This Image Tags: {self.ThisImageTags}", anchor="w")
-            if (self.ImageTagMessage):
-                self.canvas.create_text(800, 10, text=F"Image Message: {self.ImageTagMessage}", anchor="w")
+        observed = self.CurrentData.ObservedTimeLocal.strftime("%Y-%m-%d %I:%M:%S %p")
+        source = self.CurrentData.Source
+        self.Text(uptime, self.Config.Weather.Uptime)
+        self.Text(lastUpdated, self.Config.Weather.LastUpdated)
+        self.Text(observed, self.Config.Weather.Observed)
+        self.Text(source, self.Config.Weather.Source)
+        imageTags = F"Requested Image Tags: {self.LastBackgroundImageTags} // This Image Tags: {self.ThisImageTags}"
+        if (self.ImageTagMessage):
+            imageTags += F" // Image Message: {self.ImageTagMessage}"
 
+        self.Text(imageTags, self.Config.Weather.ImageTags)
 
-        if (self.WeatherData["Current"]["Source"] == "Station"):
-            station = self.WeatherData["Current"]["StationID"]
-            self.canvas.create_text(1900, 920, text=F"Station: {station}",fill="#777",anchor="e")
-        
+        if (self.CurrentData.Source == "Station"):
+            station = F"Station: {self.CurrentData.StationId}"
+            self.Text(station, self.Config.Weather.Station)
 
         try:
-            temp = self.WeatherData["Current"].get("CurrentTempF", "--")
-            feelsLikeTemp = self.WeatherData["Current"].get("HeatIndex","--")
+            temp = self.CurrentData.CurrentTemp
+            feelsLikeTemp = self.CurrentData.FeelsLike
             feelsLike = f"Feels Like: {feelsLikeTemp}°"
-            state = self.WeatherData["Current"].get("State", "")
-            emoji = self.GetWeatherEmoji(state, now.astimezone())
+            state = self.CurrentData.State
+            emoji = self.GetWeatherEmoji(state, now)
             display = f"{temp}°"
-            self.CreateTextWithStroke(display, FontTemp, 1750, 30, anchor="ne")
-            self.CreateTextWithStroke(feelsLike, FontBig, 1750, 160, anchor="ne", mainFill="#BBB")
-            self.CreateTextWithStroke(emoji["Emoji"], FontEmoji, 1880, 30, anchor="ne", mainFill=emoji["Color"])
-            self.CreateTextWithStroke("🌡️", FontSmallEmoji, 1490, 30, anchor="ne", mainFill="red")
-            self.CreateTextWithStroke("🌃", FontSmallEmoji, 1500, 90, anchor="ne", mainFill="blue")
-            self.CreateTextWithStroke(self.WeatherData["Forecast"]["Daytime"]["HighF"], FontSmallTemp, 1420, 30, anchor="ne", mainFill="red")
-            self.CreateTextWithStroke(self.WeatherData["Forecast"]["Nighttime"]["LowF"], FontSmallTemp, 1420, 90, anchor="ne", mainFill="blue")
+            self.Text(display, self.Config.Weather.CurrentTemp)
+            self.Text(feelsLike, self.Config.Weather.FeelsLike)
+            self.EmojiText(emoji["Emoji"], self.Config.Weather.CurrentTempEmoji)
+            #self.CreateTextWithStroke("🌡️", FontSmallEmoji, 1490, 30, anchor="ne", mainFill="red")
+            #Maybe later I'll come up with a new hting here. This seems redundant.
+            #self.CreateTextWithStroke("🌃", FontSmallEmoji, 1500, 90, anchor="ne", mainFill="blue")
+            self.Text(self.ForecastData.Daytime.High, self.Config.Weather.TempHigh)
+            self.Text(self.ForecastData.Nighttime.Low, self.Config.Weather.TempLow)
         except Exception as e:
             self.Log.warn(f"Failed to render weather info: {e}")
 
-        wind_dir = self.WeatherData["Current"].get("WindDirection", 0)
-        wind_speed = self.WeatherData["Current"].get("WindSpeedMPH", 0)
-        gust_speed = self.WeatherData["Current"].get("GustMPH", 0)
+        wind_dir = self.CurrentData.WindDirection
+        wind_speed = self.CurrentData.WindSpeed
+        gust_speed = self.CurrentData.WindGust
         self.DrawWindIndicator(1700, 350, wind_dir, wind_speed, gust_speed)
         self.DrawRainForecastGraph()
         self.DrawRainSquare()
@@ -170,7 +244,7 @@ class WeatherDisplay:
 
     def DrawTemperatureGraph(self, x=940, y=30, width=360, height=130):
         hourlyTemps = defaultdict(list)
-        history = self.WeatherData.get("History", [])
+        history = self.HistoryData
 
         self.canvas.create_line(x, y, x+width, y, fill="white", width=2, smooth=True)
         self.canvas.create_line(x, y+height, x+width, y+height, fill="white", width=2, smooth=True)
@@ -182,18 +256,17 @@ class WeatherDisplay:
         maxTime = now.replace(minute=0,second=0,microsecond=0)
         minTimestamp = now + timedelta(days=5)
         maxTimestamp = now - timedelta(days=5)
-        high = self.WeatherData["Forecast"]["Daytime"]["HighF"]
-        low = self.WeatherData["Forecast"]["Nighttime"]["LowF"]
+        high = self.ForecastData.Daytime.High
+        low = self.ForecastData.Nighttime.Low
         tempRange = max(high - low, 1)
         tempPoints = []
         coords = []
 
-        for timestamp, data in self.WeatherData["History"]:
-            utcTimestamp = timestamp
-            if "CurrentTempF" in data:
-                hourBucket = utcTimestamp.replace(minute=0,second=0,microsecond=0)
-                if minTime <= hourBucket <= now:
-                    hourlyTemps[hourBucket].append(data["CurrentTempF"])
+        for line in history.Lines:
+            utcTimestamp = line.ObservedTimeUtc
+            hourBucket = utcTimestamp.replace(minute=0,second=0,microsecond=0)
+            if minTime <= hourBucket <= now:
+                hourlyTemps[hourBucket].append(line.CurrentTemp)
 
         for i in range(24):
             hour = now - timedelta(hours=23-i)
@@ -238,7 +311,7 @@ class WeatherDisplay:
 
     def DrawHumiditySquare(self, x=1290, y=280, size=100):
         try:
-            humidity = self.WeatherData["Current"].get("Humidity", 100)
+            humidity = self.CurrentData.Humidity
 
             fill_ratio = humidity / 100
             fill_height = int(size * fill_ratio)
@@ -253,7 +326,7 @@ class WeatherDisplay:
 
     def DrawRainSquare(self, x=1400, y=280, size=100):
         try:
-            rain_inches = self.WeatherData["Current"].get("RainInches", 0)
+            rain_inches = self.CurrentData.Rain
             max_inches = 2.0
 
             rain_inches = min(max(rain_inches, 0), max_inches)
@@ -271,7 +344,7 @@ class WeatherDisplay:
             self.Log.warn(f"Failed to draw rain square: {e}")
 
     def DrawRainForecastGraph(self, x_start=30, y_base=850, bar_width=20, bar_spacing=30, bar_max_height=100):
-        forecast = self.WeatherData["Forecast"].get("Next24Hours", [])
+        forecast = self.ForecastData.Next24Hours
         if not forecast:
             return
 
@@ -288,7 +361,7 @@ class WeatherDisplay:
         gradientHeight = 35
         secondsPastHour = now.minute * 60 + now.second
 
-        firstHour = datetime.strptime(forecast[0]["Time"], "%Y-%m-%d %H:%M")
+        firstHour = datetime.strptime(forecast[0].Time, "%Y-%m-%d %H:%M")
         currentHour = now.replace(minute=0,second=0,microsecond=0)
 
         if (firstHour < currentHour):
@@ -303,25 +376,24 @@ class WeatherDisplay:
             fillColor = f"#{pixel['Main'][0]:02x}{pixel['Main'][1]:02x}{pixel['Main'][2]:02x}"
             cloudFillColor = f"#{pixel['Cloud'][0]:02x}{pixel['Cloud'][1]:02x}{pixel['Cloud'][2]:02x}"
 
-           
             self.canvas.create_line(pushRight + i, y_base + bar_max_height, pushRight + i, y_base + bar_max_height + cloudHeight, fill=cloudFillColor)
             self.canvas.create_line(pushRight + i, y_base + bar_max_height + cloudHeight, pushRight + i, y_base + bar_max_height + gradientHeight, fill=fillColor)
             i += 1
 
         max_rain = 100  # Max rain chance is 100%
         for i, hour_data in enumerate(forecast[:24]):
-            rain_chance = hour_data.get("RainChance", 0)
-            rain_amount = hour_data.get("PrecipitationInches", 0)
-            cloudCoverPercentage = hour_data.get("CloudCoverPercentage", 0)
+            rain_chance = hour_data.RainChance
+            rain_amount = hour_data.PrecipitationRain
+            cloudCoverPercentage = hour_data.CloudCoverPercentage
             if rain_amount > 0:
                 HasRain = True
             
-            time_str = hour_data.get("Time", "")
+            time_str = hour_data.Time
             Time = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
             Hour12 = Time.strftime("%I").lstrip("0")
             AMPM = Time.strftime("%p").lower()[0]
             hour_label = Hour12 + AMPM
-            WeatherEmoji = self.GetWeatherEmoji(hour_data.get("ConditionText","--"), Time.astimezone())
+            WeatherEmoji = self.GetWeatherEmoji(hour_data.ConditionText, Time)
 
             bar_height = (rain_chance / max_rain) * bar_max_height
             x = x_start + i * (bar_width + bar_spacing)
@@ -356,7 +428,8 @@ class WeatherDisplay:
         return local
 
     def CalculateMinuteGradients(self, pixelWidth):
-        forecast = self.WeatherData["Forecast"]
+        forecast = self.ForecastData
+        sunTimes = self.SunData
         secondsPerPixel = 86400 / pixelWidth
 
         startTime = datetime.now().replace()
@@ -372,31 +445,31 @@ class WeatherDisplay:
         cloudGrayColor = (169, 169, 169)
 
         times = [
-                {"Name": "Start", "Time": datetime.now().replace(hour=0,minute=0,second=0,microsecond=0), "Color": nightColor},
-                {"Name": "Dawn", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["AstronomicalTwilight"]) - timedelta(minutes=15), "Color": duskColor},
-                {"Name": "Astronomical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["AstronomicalTwilight"]), "Color": duskColor},
-                {"Name": "Nautical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["NauticalTwilight"]), "Color": nauticalTwilightColor},
-                {"Name": "Civil Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["CivilTwilight"]), "Color": civilTwilightColor},
-                {"Name": "Day", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunrise"]["Day"]), "Color": dayColor},
-                {"Name": "Sunset", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["Start"]), "Color": dayColor},
-                {"Name": "Civil Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["CivilTwilight"]), "Color": civilTwilightColor},
-                {"Name": "Nautical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["NauticalTwilight"]), "Color": nauticalTwilightColor},
-                {"Name": "Dusk", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["AstronomicalTwilight"]), "Color": duskColor},
-                {"Name": "Night", "Time": self.ToLocalNaive(forecast["SunTimes"]["Today"]["Sunset"]["AstronomicalTwilight"]) + timedelta(minutes=15), "Color": nightColor},
+            {"Name": "Start", "Time": datetime.now().replace(hour=0,minute=0,second=0,microsecond=0), "Color": nightColor},
+            {"Name": "Dawn", "Time": sunTimes.Today.Sunrise.AstronomicalTwilight - timedelta(minutes=15), "Color": duskColor},
+            {"Name": "Astronomical Twilight", "Time": sunTimes.Today.Sunrise.AstronomicalTwilight, "Color": duskColor},
+            {"Name": "Nautical Twilight", "Time": sunTimes.Today.Sunrise.NauticalTwilight, "Color": nauticalTwilightColor},
+            {"Name": "Civil Twilight", "Time": sunTimes.Today.Sunrise.CivilTwilight, "Color": civilTwilightColor},
+            {"Name": "Day", "Time": sunTimes.Today.Sunrise.Day, "Color": dayColor},
+            {"Name": "Sunset", "Time": sunTimes.Today.Sunset.Start, "Color": dayColor},
+            {"Name": "Civil Twilight", "Time": sunTimes.Today.Sunset.CivilTwilight, "Color": civilTwilightColor},
+            {"Name": "Nautical Twilight", "Time": sunTimes.Today.Sunset.NauticalTwilight, "Color": nauticalTwilightColor},
+            {"Name": "Dusk", "Time": sunTimes.Today.Sunset.AstronomicalTwilight, "Color": duskColor},
+            {"Name": "Night", "Time": sunTimes.Today.Sunset.AstronomicalTwilight + timedelta(minutes=15), "Color": nightColor},
     
-                {"Name": "Dawn", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["AstronomicalTwilight"]) - timedelta(minutes=15), "Color": duskColor},
-                {"Name": "Astronomical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["AstronomicalTwilight"]), "Color": duskColor},
-                {"Name": "Nautical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["NauticalTwilight"]), "Color": nauticalTwilightColor},
-                {"Name": "Civil Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["CivilTwilight"]), "Color": civilTwilightColor},
-                {"Name": "Day", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunrise"]["Day"]), "Color": dayColor},
-                {"Name": "Sunset", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["Start"]), "Color": dayColor},
-                {"Name": "Civil Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["CivilTwilight"]), "Color": civilTwilightColor},
-                {"Name": "Nautical Twilight", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["NauticalTwilight"]), "Color": nauticalTwilightColor},
-                {"Name": "Dusk", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["AstronomicalTwilight"]), "Color": duskColor},
-                {"Name": "Night", "Time": self.ToLocalNaive(forecast["SunTimes"]["Tomorrow"]["Sunset"]["AstronomicalTwilight"]) + timedelta(minutes=15), "Color": nightColor},
-    
-                {"Name": "End", "Time": datetime.now().replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(hours=48), "Color": nightColor}
-            ]
+            {"Name": "Dawn", "Time": sunTimes.Tomorrow.Sunrise.AstronomicalTwilight - timedelta(minutes=15), "Color": duskColor},
+            {"Name": "Astronomical Twilight", "Time": sunTimes.Tomorrow.Sunrise.AstronomicalTwilight, "Color": duskColor},
+            {"Name": "Nautical Twilight", "Time": sunTimes.Tomorrow.Sunrise.NauticalTwilight, "Color": nauticalTwilightColor},
+            {"Name": "Civil Twilight", "Time": sunTimes.Tomorrow.Sunrise.CivilTwilight, "Color": civilTwilightColor},
+            {"Name": "Day", "Time": sunTimes.Tomorrow.Sunrise.Day, "Color": dayColor},
+            {"Name": "Sunset", "Time": sunTimes.Tomorrow.Sunset.Start, "Color": dayColor},
+            {"Name": "Civil Twilight", "Time": sunTimes.Tomorrow.Sunset.CivilTwilight, "Color": civilTwilightColor},
+            {"Name": "Nautical Twilight", "Time": sunTimes.Tomorrow.Sunset.NauticalTwilight, "Color": nauticalTwilightColor},
+            {"Name": "Dusk", "Time": sunTimes.Tomorrow.Sunset.AstronomicalTwilight, "Color": duskColor},
+            {"Name": "Night", "Time": sunTimes.Tomorrow.Sunset.AstronomicalTwilight + timedelta(minutes=15), "Color": nightColor},
+
+            {"Name": "End", "Time": datetime.now().replace(hour=0,minute=0,second=0,microsecond=0) + timedelta(hours=48), "Color": nightColor},
+        ]
 
         iTime = 0
         pixelTimes = []
@@ -427,9 +500,9 @@ class WeatherDisplay:
 
     def GetCloudCover(self, bucket: datetime) -> float:
         bucketName = bucket.strftime("%Y-%m-%d %H:%M")
-        for h in self.WeatherData["Forecast"]["Next24Hours"]:
-            if (h["Time"] == bucketName):
-                return h["CloudCoverPercentage"] / 100
+        for h in self.ForecastData.Next24Hours:
+            if (h.Time == bucketName):
+                return h.CloudCoverPercentage / 100
         return 0
 
     def CalculateTimeRatio(self, currentTime: datetime, time1: datetime, time2: datetime) -> float:
@@ -481,7 +554,7 @@ class WeatherDisplay:
 
     def GetWeatherEmoji(self, state, time):
         text = state.lower()
-        MoonPhase = self.WeatherData["Forecast"].get("MoonPhase", "--").lower()
+        Moon = self.ForecastData.Moon
         IsNight = self.IsNight(time)
         IsSunset = self.IsSunset(time)
         IsSunrise = self.IsSunrise(time)
@@ -490,22 +563,22 @@ class WeatherDisplay:
             return {"Emoji": "⛈️", "Color": "#FFD700"}  # Gold
         if "rain" in text or "shower" in text or "drizzle" in text:
             return {"Emoji": "🌧️", "Color": "#1E90FF"}  # Dodger Blue
-        if IsNight and "new moon" in MoonPhase:
-            return {"Emoji": "🌑", "Color": "#222222"}  # Dark gray
-        if IsNight and "full moon" in MoonPhase:
-            return {"Emoji": "🌕", "Color": "#FFFFE0"}  # Light Yellow
-        if IsNight and "waxing crescent" in MoonPhase:
-            return {"Emoji": "🌒", "Color": "#CCCCCC"}
-        if IsNight and "first quarter" in MoonPhase:
-            return {"Emoji": "🌓", "Color": "#DDDDDD"}
-        if IsNight and "waxing gibbous" in MoonPhase:
-            return {"Emoji": "🌔", "Color": "#EEEEEE"}
-        if IsNight and "waning gibbous" in MoonPhase:
-            return {"Emoji": "🌖", "Color": "#EEEEEE"}
-        if IsNight and "third quarter" in MoonPhase:
-            return {"Emoji": "🌗", "Color": "#DDDDDD"}
-        if IsNight and "waning crescent" in MoonPhase:
-            return {"Emoji": "🌘", "Color": "#CCCCCC"}
+        if IsNight and Moon == MoonPhase.NewMoon:
+            return {"Emoji": Moon.ToEmoji, "Color": "#222222"}  # Dark gray
+        if IsNight and Moon == MoonPhase.FullMoon:
+            return {"Emoji": Moon.ToEmoji, "Color": "#FFFFE0"}  # Light Yellow
+        if IsNight and Moon == MoonPhase.WaxingCrescent:
+            return {"Emoji": Moon.ToEmoji, "Color": "#CCCCCC"}
+        if IsNight and Moon == MoonPhase.FirstQuarter:
+            return {"Emoji": Moon.ToEmoji, "Color": "#DDDDDD"}
+        if IsNight and Moon == MoonPhase.WaxingGibbous:
+            return {"Emoji": Moon.ToEmoji, "Color": "#EEEEEE"}
+        if IsNight and Moon == MoonPhase.WaningGibbous:
+            return {"Emoji": Moon.ToEmoji, "Color": "#EEEEEE"}
+        if IsNight and Moon == MoonPhase.LastQuarter:
+            return {"Emoji": Moon.ToEmoji, "Color": "#DDDDDD"}
+        if IsNight and Moon == MoonPhase.WaningCrescent:
+            return {"Emoji": Moon.ToEmoji, "Color": "#CCCCCC"}
         if "sun" in text and "cloud" in text:
             return {"Emoji": "⛅", "Color": "#FFE066"}  # Light Yellow/Cloud mix
         if "partly" in text:
@@ -572,7 +645,7 @@ class WeatherDisplay:
 
     def ChangeBackgroundImage(self):
         now = datetime.now()
-        current_tags = self.GetWeatherTags(now.astimezone())
+        current_tags = self.GetWeatherTags(now)
 
         ShouldChange = False
         if (self.LastBackgroundImageTags is None or set(current_tags) != set(self.LastBackgroundImageTags)):
@@ -604,7 +677,7 @@ class WeatherDisplay:
         self.LastBackgroundImagePath = SelectedFile["Path"]
 
     def GetWeatherTags(self, time):
-        state = self.WeatherData["Current"].get("State", "").lower()
+        state = self.CurrentData.State.lower()
         tags = []
 
         if self.IsSunrise(time):
@@ -661,10 +734,12 @@ class WeatherDisplay:
 
     def StartDataRefresh(self):
         self.GrabHistoricalData();
-        self.RefreshForecastData();
         self.RefreshCurrentData();
-        self.RefreshStationData();
+        self.RefreshSunData();
+        self.RefreshForecastData();
+        self.ChangeBackgroundImage()
         self.RefreshScreen();
+        
 
         if (self.IsRaspberryPi()):
             self.Root.after(2000, self.EnsureFullscreen)
@@ -680,11 +755,11 @@ class WeatherDisplay:
             self.Root.attributes("-fullscreen", True)
 
     def DebugBuckets(self, reason):
-        if (not self.EnableTrace):
+        if (not self.Config.Logging.EnableTrace):
             return
 
         hourlyTemps = defaultdict(list)
-        for timestamp, data in self.WeatherData["History"]:
+        for timestamp, data in self.HistoryData:
             utcTimestamp = timestamp.astimezone(timezone.utc)
             if "CurrentTempF" in data:
                 hourBucket = utcTimestamp.replace(minute=0, second=0, microsecond=0)
@@ -694,52 +769,51 @@ class WeatherDisplay:
         self.Log.debug(F"{reason}: hourBuckets = {hourBuckets} ({len(hourBuckets)})")
 
     def GrabHistoricalData(self):
-        historicalData = self.WeatherService.GetStationHistory();
-        self.WeatherData["History"] = historicalData;
+        historicalData = self.WeatherService.GetHistoryData();
+        self.HistoryData = historicalData
         self.DebugBuckets("GrabHistoricalData");
+
+    def RefreshSunData(self):
+        now = datetime.now()
+        self.SunData = self.WeatherService.GetSunData(self.CurrentData.Latitude, self.CurrentData.Longitude, now);
+
+        tomorrow = (now + timedelta(days = 1)).replace(hour = 0, minute = 0, second = 5, microsecond = 0)
+        delay = (tomorrow - now).total_seconds() * 1000
+        self.Root.after(int(delay), self.RefreshSunData)
 
     def AppendToHistory(self):
         now = datetime.now(timezone.utc)
         cutoff = now - timedelta(hours=26)
-        currentData = self.WeatherData["Current"];
+        currentData = self.CurrentData;
 
         self.DebugBuckets("RefreshStationdata Pre-Append")
-        self.WeatherData["History"].append((now, currentData))
+        self.HistoryData.Lines.append(currentData)
         self.DebugBuckets("RefreshStationdata Post-Append")
         newHistory = []
-        for (timestamp, content) in self.WeatherData["History"]:
+        for line in self.HistoryData.Lines:
+            timestamp = line.ObservedTimeUtc
             if (timestamp >= cutoff):
-                newHistory.append((timestamp,content))
+                newHistory.append(line)
 
-        self.WeatherData["History"] = newHistory
+        self.HistoryData.Lines = newHistory
         self.DebugBuckets("RefreshStationdata Post-Filter")
 
-    def RefreshStationData(self):
-        currentData = self.WeatherService.OverlayStationData(self.WeatherData["Current"])
-
-        self.WeatherData["Current"] = currentData
-        self.AppendToHistory()
-
-        if (self.EnableTrace):
-            self.Log.debug(F"RefreshStationData: {self.WeatherData['Current']}")
-        self.Root.after(60 * 1000, self.RefreshStationData)
-        
     def RefreshCurrentData(self):
         currentData = self.WeatherService.GetCurrentData()
-        self.WeatherData["Current"] = currentData
+        self.CurrentData = currentData;
         self.AppendToHistory()
 
-        if (self.EnableTrace):
+        if (self.Config.Logging.EnableTrace):
             self.Log.debug(F"RefreshCurrentData: {currentData}")
-        self.ChangeBackgroundImage()
+        if (self.SunData):
+            self.ChangeBackgroundImage()
 
-        self.Root.after(60 * 15 * 1000, self.RefreshCurrentData)
+        self.Root.after(60 * 1000, self.RefreshCurrentData)
 
     def ClassifyWeatherBackground(self):
-        condition = self.WeatherData["Current"].get("State", "").lower()
-        is_night = self.IsNight(datetime.now().astimezone())
-
+        condition = self.CurrentData.get("State", "").lower()
         now = datetime.now().astimezone()
+        is_night = self.IsNight(now)
 
         try:
             if self.IsSunrise(now):
@@ -768,12 +842,12 @@ class WeatherDisplay:
 
     def IsNight(self, time):
         try:
-            sunriseToday = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Today"]["Sunrise"]["AstronomicalTwilight"]).astimezone(time.tzinfo)
-            sunsetToday = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Today"]["Sunset"]["AstronomicalTwilight"]).astimezone(time.tzinfo)
+            
+            sunriseToday = self.SunData.Today.Sunrise.AstronomicalTwilight
+            sunsetToday = self.SunData.Today.Sunset.AstronomicalTwilight
 
-            sunriseTomorrow = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Tomorrow"]["Sunrise"]["AstronomicalTwilight"]).astimezone(time.tzinfo)
-            sunsetTomorrow = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Tomorrow"]["Sunset"]["AstronomicalTwilight"]).astimezone(time.tzinfo)
-
+            sunriseTomorrow = self.SunData.Tomorrow.Sunrise.AstronomicalTwilight
+            sunsetTomorrow = self.SunData.Tomorrow.Sunset.AstronomicalTwilight
 
             return time < sunriseToday or sunsetToday < time < sunriseTomorrow or sunsetTomorrow < time
         except Exception as e:
@@ -782,13 +856,15 @@ class WeatherDisplay:
 
     def IsSunset(self, time):
         try:
-            start = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Today"]["Sunset"]["Start"]).astimezone(time.tzinfo)
-            end = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Today"]["Sunset"]["AstronomicalTwilight"]).astimezone(time.tzinfo)
 
-            tomorrowstart = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Today"]["Sunset"]["Start"]).astimezone(time.tzinfo)
-            tomorrowend = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Today"]["Sunset"]["AstronomicalTwilight"]).astimezone(time.tzinfo)
 
-            if (self.EnableTrace):
+            start = self.SunData.Today.Sunset.Start
+            end = self.SunData.Today.Sunset.AstronomicalTwilight
+
+            tomorrowstart = self.SunData.Tomorrow.Sunset.Start
+            tomorrowend = self.SunData.Today.Sunset.AstronomicalTwilight
+
+            if (self.Config.Logging.EnableTrace):
                 self.Log.debug(F"Sunset: {start} < {time} < {end} = {start < time < end} or {tomorrowstart} <= {time} <= {tomorrowend} = {tomorrowstart <= time <= tomorrowend}")
 
             return start <= time <= end or tomorrowstart <= time <= tomorrowend
@@ -799,20 +875,20 @@ class WeatherDisplay:
 
     def IsSunrise(self, time):
         try:
-            start = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Today"]["Sunrise"]["AstronomicalTwilight"]).astimezone(time.tzinfo)
-            end = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Today"]["Sunrise"]["Day"]).astimezone(time.tzinfo)
+            start = self.SunData.Today.Sunrise.AstronomicalTwilight
+            end = self.SunData.Today.Sunrise.Day
 
-            tomorrowstart = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Tomorrow"]["Sunrise"]["AstronomicalTwilight"]).astimezone(time.tzinfo)
-            tomorrowend = datetime.fromisoformat(self.WeatherData["Forecast"]["SunTimes"]["Tomorrow"]["Sunrise"]["Day"]).astimezone(time.tzinfo)
+            tomorrowstart = self.SunData.Tomorrow.Sunrise.AstronomicalTwilight
+            tomorrowend = self.SunData.Tomorrow.Sunrise.Day
             return start <= time <= end or tomorrowstart <= time <= tomorrowend
         except:
             return False
 
 
     def RefreshForecastData(self):
-        self.WeatherData["Forecast"] = self.WeatherService.GetForecastData()
-        if (self.EnableTrace):
-            self.Log.debug(F"RefreshForecastData: {self.WeatherData['Forecast']}")
+        self.ForecastData = self.WeatherService.GetForecastData()
+        if (self.Config.Logging.EnableTrace):
+            self.Log.debug(F"RefreshForecastData: {self.ForecastData}")
             self.Log.debug("----")
 
         self.Root.after(60 * 60 * 1000, self.RefreshForecastData)

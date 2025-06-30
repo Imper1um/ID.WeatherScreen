@@ -1,6 +1,7 @@
 .vs/
 assets/backgrounds/
 assets/unprocessed/
+*.config
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
