@@ -1,5 +1,7 @@
+from ConfigChangeHandler import ConfigChangeHandler
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
+from watchdog.observers import Observer
 from WeatherService import WeatherService
 from WeatherDisplay import WeatherDisplay
 from WeatherEncoder import WeatherEncoder
@@ -9,8 +11,17 @@ import tkinter as tk
 import logging
 import os
 import sys
+import threading
 
 config = WeatherConfig.load()
+config.save()
+
+observer = Observer()
+handler = ConfigChangeHandler(config)
+observer.schedule(handler, path=str(config._basePath), recursive=False)
+
+thread = threading.Thread(target=observer.start, daemon=True)
+thread.start()
 
 BASE_PATH = Path(__file__).resolve().parent
 

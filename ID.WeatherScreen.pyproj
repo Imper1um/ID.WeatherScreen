@@ -21,6 +21,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ConfigChangeHandler.py" />
     <Compile Include="CurrentData.py" />
     <Compile Include="ForecastData.py" />
     <Compile Include="HistoryData.py" />

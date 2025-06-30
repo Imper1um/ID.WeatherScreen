@@ -116,7 +116,7 @@ class WeatherDisplay:
 
         self.Text(date.strftime(f), settings)
     
-    def Text(self, text: str, settings: TextElementSettings):
+    def Text(self, text: str, settings: TextElementSettings, xOffset: int = 0, yOffset: int = 0):
         if (not settings.Enabled):
             return
 
@@ -140,7 +140,7 @@ class WeatherDisplay:
                 "mainFill": settings.FillColor
             }
             s = {k: v for k, v in s.items() if v is not None}
-            self.CreateTextWithStroke(text, font, settings.X, settings.Y, **s)
+            self.CreateTextWithStroke(text, font, settings.X + xOffset, settings.Y + yOffset, **s)
         else:
             s = {
                 "fill": settings.FillColor,
@@ -148,9 +148,9 @@ class WeatherDisplay:
                 "anchor": anchor
             }
             s = {k: v for k, v in s.items() if v is not None}
-            self.canvas.create_text(settings.X, settings.Y, text=text, **s)
+            self.canvas.create_text(settings.X + xOffset, settings.Y + yOffset, text=text, **s)
 
-    def EmojiText(self, text: str, settings: TextElementSettings):
+    def EmojiText(self, text: str, settings: TextElementSettings, xOffset: int = 0, yOffset: int = 0):
         if (not settings.Enabled):
             return
 
@@ -172,21 +172,13 @@ class WeatherDisplay:
             "anchor": anchor
         }
         s = {k: v for k, v in s.items() if v is not None}
-        self.canvas.create_text(settings.X, settings.Y, text=text, **s)
+        self.canvas.create_text(settings.X + xOffset, settings.Y + yOffset, text=text, **s)
 
         
 
     def RefreshScreen(self):
         now = datetime.now()
         DayOfWeek = now.strftime("%A")
-
-        FontBig = ("Arial", 40, "bold")
-        FontHuge = ("Arial", 90)
-        FontTemp = ("Arial", 72, "bold")
-        FontEmoji = (self.EmojiFont, 72)
-        FontSmallTemp = ("Arial", 46)
-        FontSmallEmoji = (self.EmojiFont, 32)
-        FontUpdate = ("Arial", 22)
 
         self.CurrentFrame = ttk.LabelFrame(self.Root, text="Weather Test")
        
@@ -195,14 +187,10 @@ class WeatherDisplay:
         self.Text(DayOfWeek, self.Config.Weather.DayOfWeek)
         self.FormattedText(now, self.Config.Weather.FullDate)
         self.FormattedText(now, self.Config.Weather.Time)
-        lastUpdated = self.CurrentData.LastUpdate.strftime("%Y-%m-%d %I:%M:%S %p")
-        uptime = self.GetUptimeString()
-        observed = self.CurrentData.ObservedTimeLocal.strftime("%Y-%m-%d %I:%M:%S %p")
-        source = self.CurrentData.Source
-        self.Text(uptime, self.Config.Weather.Uptime)
-        self.Text(lastUpdated, self.Config.Weather.LastUpdated)
-        self.Text(observed, self.Config.Weather.Observed)
-        self.Text(source, self.Config.Weather.Source)
+        self.Text(F"Uptime: {self.GetUptimeString()}", self.Config.Weather.Uptime)
+        self.FormattedText(self.CurrentData.LastUpdate, self.Config.Weather.LastUpdated)
+        self.FormattedText(self.CurrentData.ObservedTimeLocal, self.Config.Weather.Observed)
+        self.Text(F"Source: {self.CurrentData.Source}", self.Config.Weather.Source)
         imageTags = F"Requested Image Tags: {self.LastBackgroundImageTags} // This Image Tags: {self.ThisImageTags}"
         if (self.ImageTagMessage):
             imageTags += F" // Image Message: {self.ImageTagMessage}"
@@ -223,18 +211,12 @@ class WeatherDisplay:
             self.Text(display, self.Config.Weather.CurrentTemp)
             self.Text(feelsLike, self.Config.Weather.FeelsLike)
             self.EmojiText(emoji["Emoji"], self.Config.Weather.CurrentTempEmoji)
-            #self.CreateTextWithStroke("🌡️", FontSmallEmoji, 1490, 30, anchor="ne", mainFill="red")
-            #Maybe later I'll come up with a new hting here. This seems redundant.
-            #self.CreateTextWithStroke("🌃", FontSmallEmoji, 1500, 90, anchor="ne", mainFill="blue")
             self.Text(self.ForecastData.Daytime.High, self.Config.Weather.TempHigh)
             self.Text(self.ForecastData.Nighttime.Low, self.Config.Weather.TempLow)
         except Exception as e:
             self.Log.warn(f"Failed to render weather info: {e}")
 
-        wind_dir = self.CurrentData.WindDirection
-        wind_speed = self.CurrentData.WindSpeed
-        gust_speed = self.CurrentData.WindGust
-        self.DrawWindIndicator(1700, 350, wind_dir, wind_speed, gust_speed)
+        self.DrawWindIndicator()
         self.DrawRainForecastGraph()
         self.DrawRainSquare()
         self.DrawTemperatureGraph()
@@ -242,7 +224,16 @@ class WeatherDisplay:
 
         self.Root.after(1000, self.RefreshScreen)
 
-    def DrawTemperatureGraph(self, x=940, y=30, width=360, height=130):
+    def DrawTemperatureGraph(self):
+        config = self.Config.Weather.TemperatureGraph
+        if (not config.Enabled):
+            return
+
+        x = config.X
+        y = config.Y
+        width = config.Width
+        height = config.Height
+
         hourlyTemps = defaultdict(list)
         history = self.HistoryData
 
@@ -309,76 +300,106 @@ class WeatherDisplay:
 
         return f'#{red:02x}{green:02x}{blue:02x}'
 
-    def DrawHumiditySquare(self, x=1290, y=280, size=100):
+    def DrawHumiditySquare(self):
+        if (not self.CurrentData or not self.CurrentData.Humidity):
+            return
+
         try:
             humidity = self.CurrentData.Humidity
+            config = self.Config.Weather.HumiditySquare
+            if (not config.Enabled):
+                return
+            x = config.X
+            y = config.Y
+            size = config.Size
 
             fill_ratio = humidity / 100
             fill_height = int(size * fill_ratio)
             top_fill_y = y + size - fill_height
-            self.CreateTextWithStroke("💦", (self.EmojiFont, 40, "bold"), x + size // 2, y + size // 2, anchor = "center", mainFill="#00F")
-            self.canvas.create_rectangle(x, y, x + size, y + size, outline="white", width=2)
             self.canvas.create_rectangle(x + 1, top_fill_y, x + size - 2, y + size - 2, fill="#00BFFF",outline=None)
+            self.canvas.create_rectangle(x, y, x + size, y + size, outline="white", width=2)
+            self.EmojiText("💦", config.Emoji, xOffset =  x + size // 2, yOffset = y + size // 2)
             label = f"{humidity}%"
-            self.CreateTextWithStroke(label, ("Arial", 24, "bold"), x + size // 2, y + size // 2, anchor="center", mainFill="white")
+            self.Text(label, config.Text, xOffset = x + size // 2, yOffset = y + size // 2)
         except Exception as e:
             self.Log.warn(f"Failed to draw humidity square: {e}")
 
-    def DrawRainSquare(self, x=1400, y=280, size=100):
-        try:
-            rain_inches = self.CurrentData.Rain
-            max_inches = 2.0
+    def DrawRainSquare(self):
+        if (not self.CurrentData or not self.CurrentData.Rain):
+            return
 
+        try:
+            config = self.Config.Weather.RainSquare
+            if (not config.Enabled):
+                return
+            max_inches = config.MaxRain
+            size = config.Size
+            x = config.X
+            y = config.Y
+
+            rain_inches = self.CurrentData.Rain
+            max_inches = config.MaxRain
             rain_inches = min(max(rain_inches, 0), max_inches)
             fill_ratio = rain_inches / max_inches
+
+            rainAddon = '"' if self.Config.Weather.Precipitation == PrecipitationType.IN else 'MM'
 
             fill_height = int(size * fill_ratio)
             top_fill_y = y + size - fill_height
 
-            self.CreateTextWithStroke("💧", (self.EmojiFont, 40, "bold"), x + size // 2, y + size // 2, anchor="center", mainFill="#00F")
-            self.canvas.create_rectangle(x, y, x + size, y + size, outline="white", width=2)
             self.canvas.create_rectangle(x, top_fill_y, x + size, y + size, fill="blue", outline="blue")
-            label = f"{rain_inches:.2f}\""
-            self.CreateTextWithStroke(label, ("Arial", 24, "bold"), x + size // 2, y + size // 2, anchor="center", mainFill="white")
+            self.canvas.create_rectangle(x, y, x + size, y + size, outline="white", width=2)
+            self.EmojiText("💧", config.Emoji, xOffset=x + size // 2, yOffset= y + size // 2)
+            label = f"{rain_inches:.2f}{rainAddon}"
+            self.Text(label, config.Text, xOffset=x + size // 2, yOffset=y + size // 2)
         except Exception as e:
             self.Log.warn(f"Failed to draw rain square: {e}")
 
-    def DrawRainForecastGraph(self, x_start=30, y_base=850, bar_width=20, bar_spacing=30, bar_max_height=100):
+    def DrawRainForecastGraph(self):
         forecast = self.ForecastData.Next24Hours
         if not forecast:
             return
 
-        DailyFont = ("Arial", 14)
-        RainAmountFont = ("Arial", 10)
-        RainWarningFont = ("Arial", 30)
-        WeatherEmojiFront = (self.EmojiFont, 14)
+        config = self.Config.Weather.RainForecast
+        if (not config.Enabled):
+            return
+
         HasRain = False
 
-        gradientWidth = (bar_width + bar_spacing) * 24
-        secondsPerPixel = 86400 / gradientWidth
-        colorPixels = self.CalculateMinuteGradients(gradientWidth)
-        now = datetime.now()
-        gradientHeight = 35
-        secondsPastHour = now.minute * 60 + now.second
+        barWidth = config.BarWidth
+        barSpacing = config.BarSpacing
+        barMaxHeight = config.BarMaxHeight
+        x_start = config.X
+        y_start = config.Y
+        rainAddon = '"' if self.Config.Weather.Precipitation == PrecipitationType.IN else 'mm'
 
-        firstHour = datetime.strptime(forecast[0].Time, "%Y-%m-%d %H:%M")
-        currentHour = now.replace(minute=0,second=0,microsecond=0)
+        if (config.SkyGradient.Enable):
+            gradientWidth = (barWidth + barSpacing) * 24
+            secondsPerPixel = 86400 / gradientWidth
+            colorPixels = self.CalculateMinuteGradients(gradientWidth)
+            now = datetime.now()
+            gradientHeight = 35
+            secondsPastHour = now.minute * 60 + now.second
 
-        if (firstHour < currentHour):
-            secondsPastHour += 60 * 60
+            firstHour = datetime.strptime(forecast[0].Time, "%Y-%m-%d %H:%M")
+            currentHour = now.replace(minute=0,second=0,microsecond=0)
 
-        pushRight = int(secondsPastHour / secondsPerPixel) + x_start
-        i = 0
-        cloudHeight = 8
-        for pixel in colorPixels:
-            if (pushRight + i > gradientWidth + bar_spacing):
-                continue
-            fillColor = f"#{pixel['Main'][0]:02x}{pixel['Main'][1]:02x}{pixel['Main'][2]:02x}"
-            cloudFillColor = f"#{pixel['Cloud'][0]:02x}{pixel['Cloud'][1]:02x}{pixel['Cloud'][2]:02x}"
+            if (firstHour < currentHour):
+                secondsPastHour += 60 * 60
 
-            self.canvas.create_line(pushRight + i, y_base + bar_max_height, pushRight + i, y_base + bar_max_height + cloudHeight, fill=cloudFillColor)
-            self.canvas.create_line(pushRight + i, y_base + bar_max_height + cloudHeight, pushRight + i, y_base + bar_max_height + gradientHeight, fill=fillColor)
-            i += 1
+            pushRight = int(secondsPastHour / secondsPerPixel) + x_start
+            i = 0
+            cloudHeight = config.SkyGradient.CloudHeight if config.SkyGradient.EnableCloud else 0
+            for pixel in colorPixels:
+                if (pushRight + i > gradientWidth + barSpacing):
+                    continue
+                fillColor = f"#{pixel['Main'][0]:02x}{pixel['Main'][1]:02x}{pixel['Main'][2]:02x}"
+                cloudFillColor = f"#{pixel['Cloud'][0]:02x}{pixel['Cloud'][1]:02x}{pixel['Cloud'][2]:02x}"
+
+                if (config.SkyGradient.EnableCloud):
+                    self.canvas.create_line(pushRight + i, y_start + barMaxHeight, pushRight + i, y_start + barMaxHeight + cloudHeight, fill=cloudFillColor)
+                self.canvas.create_line(pushRight + i, y_start + barMaxHeight + cloudHeight, pushRight + i, y_start + barMaxHeight + gradientHeight, fill=fillColor)
+                i += 1
 
         max_rain = 100  # Max rain chance is 100%
         for i, hour_data in enumerate(forecast[:24]):
@@ -395,32 +416,26 @@ class WeatherDisplay:
             hour_label = Hour12 + AMPM
             WeatherEmoji = self.GetWeatherEmoji(hour_data.ConditionText, Time)
 
-            bar_height = (rain_chance / max_rain) * bar_max_height
-            x = x_start + i * (bar_width + bar_spacing)
+            bar_height = (rain_chance / max_rain) * barMaxHeight
+            x = x_start + i * (barWidth + barSpacing)
 
             self.canvas.create_rectangle(
-                x, y_base + bar_max_height - bar_height, x + bar_width, y_base + bar_max_height,
+                x, y_start + barMaxHeight - bar_height, x + barWidth, y_start + barMaxHeight,
                 fill="blue", outline=""
             )
 
-            self.CreateTextWithStroke(hour_label, DailyFont, x + 2 + bar_width // 2, y_base - 24, anchor="n")
-            if (self.IsRaspberryPi):
-                self.canvas.create_text(x + 2 + bar_width // 2, y_base + 107, text=WeatherEmoji["Emoji"], font=WeatherEmojiFront, anchor="n")
-            else:
-                self.CreateTextWithStroke(WeatherEmoji["Emoji"], WeatherEmojiFront, x + 2 + bar_width // 2, y_base + 107, anchor="n",mainFill=WeatherEmoji["Color"])
-
-            self.CreateTextWithStroke(F"{cloudCoverPercentage}%", RainAmountFont, x + 2 + bar_width // 2, y_base + 135, anchor="n")
+            self.Text(hour_label, config.Hour, xOffset = x + 2 + barWidth // 2, yOffset = y_start - 24)
+            self.EmojiText(WeatherEmoji["Emoji"], config.Emoji, xOffset=x + 2 + barWidth // 2, yOffset=y_start + 107)
+            self.Text(F"{cloudCoverPercentage}%", config.CloudCover, xOffset=x + 2 + barWidth // 2, yOffset=y_start + 135)
             
             if rain_amount > 0:
-                self.CreateTextWithStroke(f"{rain_amount}\"", RainAmountFont, x + 2 + bar_width // 2, y_base - 40, anchor="n")
+                self.Text(f"{rain_amount}{rainAddon}", config.RainAmount, xOffset=x + 2 + barWidth // 2, yOffset=y_start - 40)
 
-        
-
-        self.canvas.create_line(x_start, y_base, x_start + ((bar_spacing + bar_width) * 24), y_base, fill="white")
-        self.canvas.create_line(x_start, y_base + bar_max_height, x_start + ((bar_spacing + bar_width) * 24), y_base + bar_max_height, fill="white")
+        self.canvas.create_line(x_start, y_start, x_start + ((barSpacing + barWidth) * 24), y_start, fill="white")
+        self.canvas.create_line(x_start, y_start + barMaxHeight, x_start + ((barSpacing + barWidth) * 24), y_start + barMaxHeight, fill="white")
 
         if not HasRain:
-            self.CreateTextWithStroke("No Rain Detected in the next 24 Hours", RainWarningFont, x_start + ((bar_width + bar_spacing) * 12), y_base + 25, anchor="n", mainFill="#0f0")
+            self.Text("No Rain Detected in the next 24 Hours", config.NoRainWarning, xOffset = x_start + ((barWidth + barSpacing) * 12), yOffset = y_start + 25)
 
     def ToLocalNaive(self, iso_string: str) -> datetime:
         utc = datetime.fromisoformat(iso_string)
@@ -523,34 +538,57 @@ class WeatherDisplay:
     def CalculateChannel(self, channel1, channel2, percent):
         return int(channel1 + (channel2 - channel1) * percent)
 
-    def DrawWindIndicator(self, x, y, direction_deg, speed_mph, gust_mph):
-        radius = 100
+    def DrawWindIndicator(self):
+        config = self.Config.Weather.WindIndicator
+        radius = config.Size
+        x = config.X
+        y = config.Y
+
+        wind = self.CurrentData.WindSpeed
+        gust = self.CurrentData.WindGust
+        direction = self.CurrentData.WindDirection
+        addon = "MPH" if self.Config.Weather.Wind == WindType.MPH else "KPH"
 
         self.canvas.create_oval(x - radius, y - radius, x + radius, y + radius, outline="white", width=3)
         font = ("Arial", 22, "bold")
         degreeFont = ("Arial", 18)
 
-        speed_text = f"{speed_mph:.1f} MPH"
-        gust_text = f"({gust_mph:.1f} MPH)"
+        speed_text = f"{wind:.1f} {addon}"
+        gust_text = f"({gust:.1f} {addon})"
 
-        angle_rad = math.radians(direction_deg - 90)
+        angle_rad = math.radians(direction - 90)
         end_x = x + math.cos(angle_rad) * radius * 1.2
         end_y = y + math.sin(angle_rad) * radius * 1.2
 
         directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                   'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-        index = int((direction_deg + 11.25) % 360 / 22.5)
+        index = int((direction + 11.25) % 360 / 22.5)
         compass = directions[index]
-        degree_label = f"{direction_deg:.0f}° ({compass})"
+        degree_label = f"{direction:.0f}° ({compass})"
+
+        historyArrows = config.HistoryArrows
+        pastLines = [
+            line for line in reversed(self.HistoryData.Lines[:-1])
+            if hasattr(line, "WindDirection")
+            ][:historyArrows]
+        for i, line in enumerate(reversed(pastLines)):
+            pastDirection = line.WindDirection
+            fade = 0.1 + (0.5 * (i + 1) / historyArrows)
+            grayValue = int(255 * fade)
+            gray = f"#{grayValue:02x}{grayValue:02x}{grayValue:02x}"
+
+            angleRad = math.radians(pastDirection - 90)
+            fadedX = x + math.cos(angleRad) * radius * 0.95
+            fadedY = y + math.sin(angleRad) * radius * 0.95
+            self.canvas.create_line(x, y, fadedX, fadedY, fill=gray, width=3, arrow=tk.LAST)
 
         for dx, dy in [(-2,-2), (-2,0), (-2,2), (0,-2), (0,2), (2,-2), (2,0), (2,2)]:
             self.canvas.create_line(x + dx, y + dy, end_x + dx, end_y + dy, fill="black", width=5, arrow=tk.LAST)
 
         self.canvas.create_line(x, y, end_x, end_y, fill="white", width=5, arrow=tk.LAST)
-        self.CreateTextWithStroke(speed_text, font, x, y - 30, anchor="center")
-        self.CreateTextWithStroke(gust_text, font, x, y, anchor="center")
-        self.CreateTextWithStroke(degree_label, degreeFont, x, y + 30, anchor="center")
-
+        self.Text(speed_text, config.Wind, xOffset=x, yOffset= y - 30)
+        self.Text(gust_text, config.Gust, xOffset=x, yOffset=y)
+        self.Text(degree_label, config.Direction, xOffset=x, yOffset=y + 30)
 
     def GetWeatherEmoji(self, state, time):
         text = state.lower()
