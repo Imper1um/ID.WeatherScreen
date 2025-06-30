@@ -3,30 +3,7 @@ This is a Python-based weather screen. This screen is intended to run on a Raspb
 
 ![Screenshot](documentation/img/WeatherScreenApp.png)
 
-This system uses multiple sources for data, and requires a bit of setup in order to get working, and is not intended to be used by people without knowledge about environment variables.
-
-## 🌍 Environment Variables
-To run this project correctly, you'll need to configure several environment variables. These control API access, location settings, logging levels, and optional debugging features.
-
-### Required
-
-| Variable           | Description                                                                 |
-|--------------------|-----------------------------------------------------------------------------|
-| `WEATHERAPI_KEY`   | API key for accessing [WeatherAPI](https://www.weatherapi.com/). Used for retrieving general weather data. You will need to create an account (free). This project only accesses WeatherAPI once every 15 minutes, and 3 times upon startup, so the Free Tier should be fine. |
-| `LOCATION`         | The name or code for the location (e.g., `Orlando, FL`) that you want to monitor or display weather data for. This can be a city name, a zip code, or coordinates. |
-
-### Optional
-
-| Variable           | Default | Description |
-|--------------------|---------|-------------|
-| `CHATGPT_KEY`      |         | OpenAI API key for automatically classifying images for use. |
-| `ENABLE_TRACE`     | `No`    | If set to `Yes`, enables detailed trace logging for debugging purposes. |
-| `LOGGING_LEVEL`    | `INFO`  | Adjusts the verbosity of logs. Accepted values include `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`. |
-| `WUNDERGROUND_KEY` |         | API key for accessing [Weather Underground](https://www.wunderground.com/weather/api). Provides data from personal weather stations. |
-| `WEATHER_STATION`  |         | The station ID used to pull precise readings from a specific weather station (typically a WU station code like `KFLORLAN213`). |
-
-NOTE: If you intend to use WUnderground, you will need to also mention a valid WEATHER_STATION code.
-
+This system uses multiple sources for data, and requires a bit of setup in order to get working. I'm working on the plug-and-play functionality with Raspberry Pi, but that will take some time.
 
 ## Raspberry Pi 5 Setup Instructions
 
