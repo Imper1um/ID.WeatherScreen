@@ -58,26 +58,9 @@ Then:
 3. Set `autohide=1` in the appropriate section.
 4. Reboot to apply the changes.
 
-### 3. Set Up Environment Variables
+### 3. (⚠ Deprecated) Set Up Environment Variables
 
-The application relies on several environment variables to function properly:
-
-```bash
-WEATHERAPI_KEY        # Your API key for WeatherAPI
-WUNDERGROUND_KEY      # Your API key for Weather Underground
-CHATGPT_KEY           # Your OpenAI API key – used for automated classification of weather background images
-LOCATION              # Location string (e.g., "Orlando, FL")
-WEATHER_STATION       # Specific station ID (e.g., "KFLORLAN65")
-ENABLE_TRACE          # Set to "Yes" to enable trace-level logging
-ENABLE_IMAGETAGS      # Set to "Yes" to display image tags on the screen. This is so you can figure out if you're missing an image type.
-LOGGING_LEVEL=INFO    # Logging level: DEBUG, INFO, WARNING, etc.
-```
-
-> ⚠ If you're running the app interactively, you can `export` these variables or add them to your `~/.bashrc`.
-
-> ⚠ **Important for Services:** Do **not** rely on `export` or `~/.bashrc` when running as a systemd service. These values must be explicitly included in the `.service` file (see below).
-
----
+> ⚠ Environment Variables are no longer supported as how the program is supplied data. See Settings below!
 
 ### 4. Install as a Systemd Service (Optional)
 
@@ -94,13 +77,6 @@ Wants=graphical-session.target
 [Service]
 ExecStart=/bin/bash -c 'sleep 10 && cd /path/to/source && source venv/bin/activate && export DISPLAY=:0 && python3 ID.WeatherScreen.py'
 WorkingDirectory=/path/to/source
-Environment="WEATHERAPI_KEY=your_weatherapi_key"
-Environment="WUNDERGROUND_KEY=your_wunderground_key"
-Environment="CHATGPT_KEY=your_chatgpt_api_key"
-Environment="LOCATION=Your City, ST"
-Environment="WEATHER_STATION=YourStationID"
-Environment="ENABLE_TRACE=No"
-Environment="LOGGING_LEVEL=INFO"
 Environment="XDG_RUNTIME_DIR=/run/user/1000"
 Restart=always
 User=pi
@@ -176,3 +152,95 @@ If no images match the current weather and time requirements, the dashboard will
 ### 5. Recommended Image Size
 
 Images should ideally match the resolution of your display (for example, 1920x1080 for 1080p screens), but non-matching resolutions are still supported.
+
+# Settings and Configuration
+
+> ⚠️ Environment Variables are no longer used for configuring this project. Configuration is now handled exclusively via a `.config` file.
+
+## First Run
+
+On the first run, the system will automatically generate a configuration file named:
+```
+weatherscreen.config
+```
+
+This file is saved in the same directory as the Python scripts. It contains all the necessary configuration for your weather display and must be edited to suit your needs. If the file does not exist, it will be created with default values.
+
+## Configuration Sections
+
+The configuration file is divided into several sections, each with a specific purpose:
+
+### `Logging`
+
+Controls the logging and debug output.
+
+- `EnableTrace`: Enables more verbose internal tracing.
+- `EnableDebug`: Enables detailed debug output.
+- `LoggingLevel`: One of `"INFO"`, `"DEBUG"`, etc. Sets the minimum logging level.
+
+### `Services`
+
+Contains API keys and data provider selections.
+
+#### `WeatherAPI` / `WeatherUnderground`
+
+- `Key`: Your API key for each service.
+
+#### `Selections`
+
+Specifies which service is used for each data type.
+
+- `History`: Provider for historical weather data. (Possible Values: WeatherUnderground)
+- `Forecast`: Provider for forecast data. (Possible Values: WeatherAPI)
+- `Sun`: Provider for sunrise/sunset calculations. (Possible Values: SunriseSunset)
+- `Current`: A prioritized list of providers for current weather data (e.g. `["WeatherAPI", "WeatherUnderground"]`). The first provider will provide the base data, and then subsequent providers will overlay their data.
+
+### `ChatGPT`
+
+Specifies ChatGPT integration for image tagging.
+
+- `Key`: Your OpenAI API key.
+- `Model`: Model to use (e.g., `"gpt-4o"`).
+
+### `Weather`
+
+Main settings related to display and measurement preferences.
+
+- `Location`: Location. This can be a Zip Code, a City, State, or a Latitude,Longitude value.
+- `StationCode`: Station code (e.g., Weather Underground personal weather station ID).
+- `Temperature`: `"F"` for Fahrenheit or `"C"` for Celsius.
+- `Pressure`: `"MB"` for millibars or `"HG"` for inches of mercury.
+- `Wind`: `"MPH"` or `"KPH"`.
+- `Visibility`: `"Miles"` or `"Kilometers"`.
+- `Precipitation`: `"MM"` for millimeters or `"IN"` for inches.
+
+These fields control how the system interprets and formats raw weather data.
+
+### `Weather` → Display Text Elements
+
+These settings control the on-screen position and style of individual weather-related text elements. Each setting is an object with fields like:
+
+- `X`, `Y`: Coordinates relative to the top-left of the screen (Tkinter coordinate system).
+- `FillColor`: Hex or named color (e.g. `"#FFF"`, `"red"`).
+- `FontFamily`: Optional font name.
+- `FontWeight`: Can be `"normal"` or `"bold"`.
+- `FontSize`: Size of the text in points.
+- `Anchor`: Text anchor (`"center"`, `"e"`, `"ne"`, etc.).
+- `Stroke`: If `True`, applies a 2px stroke outline around the text for better readability.
+- `Enabled`: Whether the element is drawn on the canvas.
+
+#### Common Elements
+
+- `ImageTags`: Debug element that shows the actual weather tags used to pick a background image. For instance, if the system wanted `["Cloudy", "Daylight"]` but got `["Lightning", "Night"]`, those would show here.
+- `Uptime`: Displays system uptime.
+- `LastUpdated`: Shows the time of the most recent data update.
+- `Observed`: Time of the observed weather report.
+- `Source`: Which data source provided the weather data.
+- `DayOfWeek`, `FullDate`, `Time`: Display current day/date/time with optional formatting.
+- `Station`: Shows the station name or ID.
+- `CurrentTempEmoji`: A weather-related emoji icon next to the temperature.
+- `CurrentTemp`: Displays the current temperature.
+- `FeelsLike`: Displays the "feels like" temperature.
+- `TempHigh` / `TempLow`: Displays high and low forecasted temperatures.
+
+Other Customizable elements will be added in the future.
