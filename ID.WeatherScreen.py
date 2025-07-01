@@ -1,17 +1,16 @@
-from ConfigChangeHandler import ConfigChangeHandler
-from logging.handlers import TimedRotatingFileHandler
+import tkinter as tk
+import logging, os, sys, threading
+
 from pathlib import Path
 from watchdog.observers import Observer
-from WeatherService import WeatherService
-from WeatherDisplay import WeatherDisplay
-from WeatherEncoder import WeatherEncoder
-from WeatherConfig import WeatherConfig
+
+from config.ConfigChangeHandler import ConfigChangeHandler
+from logging.handlers import TimedRotatingFileHandler
+from services.WeatherService import WeatherService
+from core.WeatherDisplay import WeatherDisplay
+from core.WeatherEncoder import WeatherEncoder
+from config.WeatherConfig import WeatherConfig
 from datetime import datetime
-import tkinter as tk
-import logging
-import os
-import sys
-import threading
 
 config = WeatherConfig.load()
 config.save()

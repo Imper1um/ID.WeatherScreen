@@ -1,5 +1,5 @@
 from datetime import datetime
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass
 from typing import Optional
 
 

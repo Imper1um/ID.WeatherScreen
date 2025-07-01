@@ -1,14 +1,8 @@
-import base64
-import json
-import mimetypes
-import os
+import base64, exiftool, json, logging, mimetypes, openai, os, shutil
 from re import S
-import shutil
-import openai
-import exiftool
-import logging
+
 from pathlib import Path
-from WeatherConfig import WeatherConfig
+from config.WeatherConfig import WeatherConfig
 
 
 class WeatherEncoder:

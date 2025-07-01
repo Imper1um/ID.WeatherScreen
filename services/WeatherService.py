@@ -2,14 +2,17 @@
 import requests
 
 from datetime import datetime, timedelta
-from CurrentData import CurrentData
-from WeatherConfig import WeatherConfig
+
 from WeatherAPIService import WeatherAPIService
 from WeatherUndergroundService import WeatherUndergroundService
 from SunriseSunsetService import SunriseSunsetService
-from ForecastData import *
-from HistoryData import HistoryData
-from SunData import *
+
+from config.WeatherConfig import WeatherConfig
+
+from data.CurrentData import CurrentData
+from data.ForecastData import *
+from data.HistoryData import HistoryData
+from data.SunData import *
 
 class WeatherService:
     def __init__(self, config: WeatherConfig):

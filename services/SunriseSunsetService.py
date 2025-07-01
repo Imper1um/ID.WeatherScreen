@@ -2,8 +2,10 @@ import logging
 import requests
 from dateutil import parser
 from datetime import datetime, timedelta
-from SunData import *
-from WeatherConfig import WeatherConfig
+
+from config.WeatherConfig import WeatherConfig
+
+from data.SunData import *
 
 class SunriseSunsetService:
     def __init__(self, config: WeatherConfig):

@@ -1,31 +1,31 @@
-﻿import json
-import logging
-import math
-import os
-import platform
-import random
+﻿import json, logging, math, os, platform, random
+import exiftool
+
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-import exiftool
 from dateutil import tz
 from PIL import Image, ImageTk
 
 import tkinter as tk
 from tkinter import ttk
 
-from WeatherConfig import *
-from WeatherEncoder import WeatherEncoder
-from WeatherService import WeatherService
-from CurrentData import CurrentData
-from ForecastData import ForecastData, MoonPhase
-from HistoryData import HistoryData, HistoryLine
-from SunData import SunData
+from config.FormattedTextElementSettings import FormattedTextElementSettings
+from config.SettingsEnums import *
+from config.TextElementSettings import TextElementSettings
+from config.WeatherConfig import WeatherConfig
+
+from services.WeatherService import WeatherService
+
+from data.CurrentData import CurrentData
+from data.ForecastData import ForecastData, MoonPhase
+from data.HistoryData import HistoryData, HistoryLine
+from data.SunData import SunData
 
 class WeatherDisplay:
-    def __init__(self, root, weatherService: WeatherService, weatherEncoder: WeatherEncoder, weatherConfig: WeatherConfig):
+    def __init__(self, root, weatherService: WeatherService, weatherConfig: WeatherConfig):
         self.Config = weatherConfig
         self.Log = logging.getLogger("WeatherDisplay")
         self.BasePath = Path(__file__).resolve().parent
@@ -36,7 +36,6 @@ class WeatherDisplay:
         self.Root = root
         self.FirstTry = True
         self.WeatherService = weatherService
-        self.WeatherEncoder = weatherEncoder
         self.CurrentData: Optional[CurrentData] = None
         self.ForecastData: Optional[ForecastData] = None
         self.HistoryData: Optional[HistoryData] = None
