@@ -1,4 +1,4 @@
-from enum import Enum
+ï»¿from enum import Enum
 
 class TemperatureType(Enum):
     F = "F"
@@ -7,8 +7,8 @@ class TemperatureType(Enum):
     @property
     def description(self):
         return {
-            TemperatureType.F: "Fahrenheit (°F)",
-            TemperatureType.C: "Celsius (°C)"
+            TemperatureType.F: "Fahrenheit (Â°F)",
+            TemperatureType.C: "Celsius (Â°C)"
         }[self]
 
 class PressureType(Enum):

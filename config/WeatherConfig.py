@@ -1,17 +1,16 @@
-﻿import json
+﻿import collections.abc, dataclasses, logging, json
+
 from dataclasses import dataclass, asdict, field
-import dataclasses
 from pathlib import Path
-import logging
-import collections.abc
 from enum import Enum
 from typing import List, Optional, get_origin, get_args, Union
 from hashlib import md5
 
-from config.LoggingSettings import LoggingSettings
-from config.ServicesSettings import ServicesSettings
-from config.ChatGPTSettings import ChatGPTSettings
-from config.WeatherSettings import WeatherSettings
+from .LoggingSettings import LoggingSettings
+from .ServicesSettings import ServicesSettings
+from .ChatGPTSettings import ChatGPTSettings
+from .WeatherSettings import WeatherSettings
+from .WebConfig import WebConfig
 
 def from_dict(cls, data: dict):
     if not dataclasses.is_dataclass(cls):
@@ -99,27 +98,38 @@ class WeatherConfig:
     Services: ServicesSettings = field(default_factory=ServicesSettings)
     ChatGPT: ChatGPTSettings = field(default_factory=ChatGPTSettings)
     Weather: WeatherSettings = field(default_factory=WeatherSettings)
+    Web: WebConfig = field(default_factory=WebConfig)
 
     _configFileName: str = field(default="weatherscreen.config", init=False, repr=False, compare=False, metadata={"serialize":False})
     _basePath: Path = field(default=Path(__file__).resolve().parent, init=False, repr=False, compare=False, metadata={"serialize":False})
     _last_hash: Optional[str] = field(default=None, init=False, repr=False, compare=False, metadata={"serialize":False})
 
     @classmethod
-    def load(cls) -> "WeatherConfig":
-        config_path = cls._basePath / cls._configFileName
+    def load(cls, basePath: Path = None) -> "WeatherConfig":
+        if basePath is None:
+            basePath = Path(__file__).resolve().parent.parent
+
+        config_path = basePath / cls._configFileName
+
         if config_path.exists():
             try:
                 with open(config_path, "rb") as f:
                     content = f.read()
                     data = json.loads(content)
+
                 config = from_dict(cls, data)
                 config._last_hash = md5(content).hexdigest()
+                config._basePath = basePath
                 return config
+
             except Exception as e:
                 logging.warning(f"Could not read config file: {e}")
-                return cls()
+                config = cls()
+                config._basePath = basePath
+                return config
         else:
             config = cls()
+            config._basePath = basePath
             config.save()
             return config
 

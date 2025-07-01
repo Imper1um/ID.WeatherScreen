@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 from typing import Optional
 
-from config.ElementSettings import ElementSettings
+from .ElementSettings import ElementSettings
 
 @dataclass
 class TextElementSettings(ElementSettings):

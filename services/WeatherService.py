@@ -3,9 +3,9 @@ import requests
 
 from datetime import datetime, timedelta
 
-from WeatherAPIService import WeatherAPIService
-from WeatherUndergroundService import WeatherUndergroundService
-from SunriseSunsetService import SunriseSunsetService
+from .WeatherAPIService import WeatherAPIService
+from .WeatherUndergroundService import WeatherUndergroundService
+from .SunriseSunsetService import SunriseSunsetService
 
 from config.WeatherConfig import WeatherConfig
 

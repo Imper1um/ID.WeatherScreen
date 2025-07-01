@@ -17,5 +17,6 @@ from .SkyGradientSettings import SkyGradientSettings
 from .SquareElementSettings import SquareElementSettings
 from .TextElementSettings import TextElementSettings
 from .WeatherSettings import WeatherSettings
+from .WebConfig import WebConfig
 from .WindIndicatorSettings import WindIndicatorSettings
 from .WeatherConfig import WeatherConfig

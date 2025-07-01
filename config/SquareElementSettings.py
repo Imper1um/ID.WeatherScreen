@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 
-from config.ElementSettings import ElementSettings
+from .ElementSettings import ElementSettings
 
 @dataclass 
 class SquareElementSettings(ElementSettings):

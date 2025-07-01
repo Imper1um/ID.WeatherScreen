@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 
-from config.HumiditySquareSettings import HumiditySquareSettings
+from .HumiditySquareSettings import HumiditySquareSettings
 
 @dataclass
 class RainSquareSettings(HumiditySquareSettings):

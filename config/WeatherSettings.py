@@ -1,13 +1,13 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 
-from config.SettingsEnums import *
-from config.TextElementSettings import TextElementSettings
-from config.FormattedTextElementSettings import FormattedTextElementSettings
-from config.WindIndicatorSettings import WindIndicatorSettings
-from config.HumiditySquareSettings import HumiditySquareSettings
-from config.RainSquareSettings import RainSquareSettings
-from config.RainForecastSettings import RainForecastSettings
-from config.SizeElementSettings import SizeElementSettings
+from .SettingsEnums import *
+from .TextElementSettings import TextElementSettings
+from .FormattedTextElementSettings import FormattedTextElementSettings
+from .WindIndicatorSettings import WindIndicatorSettings
+from .HumiditySquareSettings import HumiditySquareSettings
+from .RainSquareSettings import RainSquareSettings
+from .RainForecastSettings import RainForecastSettings
+from .SizeElementSettings import SizeElementSettings
 
 @dataclass
 class WeatherSettings:

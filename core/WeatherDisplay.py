@@ -28,7 +28,7 @@ class WeatherDisplay:
     def __init__(self, root, weatherService: WeatherService, weatherConfig: WeatherConfig):
         self.Config = weatherConfig
         self.Log = logging.getLogger("WeatherDisplay")
-        self.BasePath = Path(__file__).resolve().parent
+        self.BasePath = weatherConfig._basePath
         self.Log.debug(F"BasePath: {self.BasePath}")
         self.EmojiFont = "Segoe UI Emoji"
         if (self.IsRaspberryPi()):

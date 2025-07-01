@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 from typing import Optional
 
-from config.TextElementSettings import TextElementSettings
+from .TextElementSettings import TextElementSettings
 
 @dataclass
 class FormattedTextElementSettings(TextElementSettings):

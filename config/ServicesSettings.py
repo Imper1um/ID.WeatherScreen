@@ -1,8 +1,7 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 
-from config.SelectionSettings import SelectionSettings
-from config.ServiceSettings import ServiceSettings
-
+from .SelectionSettings import SelectionSettings
+from .ServiceSettings import ServiceSettings
 
 @dataclass
 class ServicesSettings:

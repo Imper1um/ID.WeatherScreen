@@ -1,5 +1,5 @@
-import logging
-import requests
+﻿import logging, requests
+
 from dateutil import parser
 from datetime import datetime, timedelta
 

@@ -1,7 +1,7 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 
-from config.SquareElementSettings import SquareElementSettings
-from config.TextElementSettings import TextElementSettings
+from .SquareElementSettings import SquareElementSettings
+from .TextElementSettings import TextElementSettings
 
 @dataclass
 class WindIndicatorSettings(SquareElementSettings):

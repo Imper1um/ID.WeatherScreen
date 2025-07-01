@@ -1,7 +1,7 @@
-from dataclasses import dataclass, field
-from config.ElementSettings import ElementSettings
-from config.TextElementSettings import TextElementSettings
-from config.SkyGradientSettings import SkyGradientSettings
+﻿from dataclasses import dataclass, field
+from .ElementSettings import ElementSettings
+from .TextElementSettings import TextElementSettings
+from .SkyGradientSettings import SkyGradientSettings
 
 @dataclass
 class RainForecastSettings(ElementSettings):

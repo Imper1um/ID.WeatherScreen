@@ -37,6 +37,7 @@
     <Compile Include="config\SquareElementSettings.py" />
     <Compile Include="config\TextElementSettings.py" />
     <Compile Include="config\WeatherSettings.py" />
+    <Compile Include="config\WebConfig.py" />
     <Compile Include="config\WindIndicatorSettings.py" />
     <Compile Include="config\__init__.py" />
     <Compile Include="core\__init__.py" />
@@ -54,6 +55,8 @@
     <Compile Include="services\WeatherService.py" />
     <Compile Include="services\WeatherUndergroundService.py" />
     <Compile Include="services\__init__.py" />
+    <Compile Include="web\WeatherWeb.py" />
+    <Compile Include="web\__init__.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="assets\" />
@@ -63,6 +66,7 @@
     <Folder Include="data\" />
     <Folder Include="config\" />
     <Folder Include="services\" />
+    <Folder Include="web\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="config\ChatGPTSettings.py" />
