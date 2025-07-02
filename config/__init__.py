@@ -1,4 +1,4 @@
-from .ConfigChangeHandler import ConfigChangeHandler
+﻿from .ConfigChangeHandler import ConfigChangeHandler
 from .ElementSettings import ElementSettings
 from .FormattedTextElementSettings import FormattedTextElementSettings
 from .HumiditySquareSettings import HumiditySquareSettings

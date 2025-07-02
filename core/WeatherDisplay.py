@@ -20,7 +20,7 @@ from config.WeatherConfig import WeatherConfig
 from services.WeatherService import WeatherService
 
 from data.CurrentData import CurrentData
-from data.ForecastData import ForecastData, MoonPhase
+from data.ForecastData import ForecastData, MoonPhase 
 from data.HistoryData import HistoryData, HistoryLine
 from data.SunData import SunData
 

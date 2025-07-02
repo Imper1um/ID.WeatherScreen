@@ -164,7 +164,7 @@ class WeatherUndergroundService:
         }
 
         try:
-            response = requests.get(self.StationUrl, params=params)
+            response = requests.get(self.StationUrl, params=params,headers={'Cache-Control': 'no-cache', "Pragma": 'no-cache'})
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:

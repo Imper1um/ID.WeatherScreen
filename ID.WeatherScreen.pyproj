@@ -11,6 +11,7 @@
     <OutputPath>.</OutputPath>
     <Name>ID.WeatherScreen</Name>
     <RootNamespace>ID.WeatherScreen</RootNamespace>
+    <InterpreterId>MSBuild|env|$(MSBuildProjectFullPath)</InterpreterId>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -55,6 +56,12 @@
     <Compile Include="services\WeatherService.py" />
     <Compile Include="services\WeatherUndergroundService.py" />
     <Compile Include="services\__init__.py" />
+    <Compile Include="web\templates\AdminDashboardHtmlBuilder.py" />
+    <Compile Include="web\templates\AdminHtmlBuilder.py" />
+    <Compile Include="web\templates\BaseHtmlBuilder.py" />
+    <Compile Include="web\templates\FormHtmlBuilder.py" />
+    <Compile Include="web\templates\LoginHtmlBuilder.py" />
+    <Compile Include="web\templates\__init__.py" />
     <Compile Include="web\WeatherWeb.py" />
     <Compile Include="web\__init__.py" />
   </ItemGroup>
@@ -67,10 +74,27 @@
     <Folder Include="config\" />
     <Folder Include="services\" />
     <Folder Include="web\" />
+    <Folder Include="web\static\css\" />
+    <Folder Include="web\static\" />
+    <Folder Include="web\static\js\" />
+    <Folder Include="web\templates\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="config\ChatGPTSettings.py" />
     <Content Include="requirements.txt" />
+    <Content Include="web\static\js\adminMiddleContent.js" />
+    <Content Include="web\static\css\site.css" />
+  </ItemGroup>
+  <ItemGroup>
+    <Interpreter Include="env\">
+      <Id>env</Id>
+      <Version>3.13</Version>
+      <Description>env (Python 3.13 (64-bit))</Description>
+      <InterpreterPath>Scripts\python.exe</InterpreterPath>
+      <WindowsInterpreterPath>Scripts\pythonw.exe</WindowsInterpreterPath>
+      <PathEnvironmentVariable>PYTHONPATH</PathEnvironmentVariable>
+      <Architecture>X64</Architecture>
+    </Interpreter>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

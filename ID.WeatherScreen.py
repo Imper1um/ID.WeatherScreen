@@ -75,6 +75,8 @@ if (not ENABLE_TRACE):
     urllibLogger.setLevel(logging.WARNING)
     pilPngLogger = logging.getLogger("PIL.PngImagePlugin")
     pilPngLogger.setLevel(logging.WARNING)
+    werkzugLogger = logging.getLogger("werkzeug")
+    werkzugLogger.setLevel(logging.WARNING)
 
 Log = logging.getLogger("ID.WeatherScreen")
 Log.info("Started.")
@@ -90,6 +92,8 @@ if config.Weather.StationCode and not config.Services.WeatherUnderground.Key:
     Log.warning("Weather.StationCode is mentioned but there is no Services.WeatherUnderground.Key. No weather updates can be made for this station. It doesn't prevent startup, but it will not show live data.")
 
 weatherEncoder = None
+Log.info("Initializing Encoder...")
+
 if not config.ChatGPT.Key:
     Log.info("No ChatGPT.Key, so WeatherEncoder will not process unprocessed files!")
 else:
@@ -110,11 +114,20 @@ if len(os.listdir(imageDirectory)) == 0:
     sys.exit()
 
 #try:
-web = WeatherWeb(config)
+Log.info("Initializing Services...")
 service = WeatherService(config)
+
+
+Log.info("Initializing Interface...")
 root = tk.Tk()
 root.configure(bg="#00ff00")
 display = WeatherDisplay(root, service, config)
+
+Log.info("Initializing Web...")
+web = WeatherWeb(config, display, weatherEncoder, service)
+
+Log.info("Starting systems...")
+web.start()
 display.StartDataRefresh()
 root.mainloop();
 #except:
