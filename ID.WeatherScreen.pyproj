@@ -47,6 +47,9 @@
     <Compile Include="data\ForecastData.py" />
     <Compile Include="data\HistoryData.py" />
     <Compile Include="data\__init__.py" />
+    <Compile Include="helpers\DateTimeHelpers.py" />
+    <Compile Include="helpers\PlatformHelpers.py" />
+    <Compile Include="helpers\__init__.py" />
     <Compile Include="ID.WeatherScreen.py" />
     <Compile Include="data\SunData.py" />
     <Compile Include="services\SunriseSunsetService.py" />
@@ -57,11 +60,14 @@
     <Compile Include="services\WeatherService.py" />
     <Compile Include="services\WeatherUndergroundService.py" />
     <Compile Include="services\__init__.py" />
-    <Compile Include="web\templates\AdminDashboardHtmlBuilder.py" />
-    <Compile Include="web\templates\AdminHtmlBuilder.py" />
+    <Compile Include="web\templates\admin\AdminDashboardHtmlBuilder.py" />
+    <Compile Include="web\templates\admin\AdminHtmlBuilder.py" />
+    <Compile Include="web\templates\admin\__init__.py" />
     <Compile Include="web\templates\BaseHtmlBuilder.py" />
+    <Compile Include="web\templates\components\__init__.py" />
     <Compile Include="web\templates\FormHtmlBuilder.py" />
     <Compile Include="web\templates\LoginHtmlBuilder.py" />
+    <Compile Include="web\templates\components\WindBuilder.py" />
     <Compile Include="web\templates\__init__.py" />
     <Compile Include="web\WeatherWeb.py" />
     <Compile Include="web\__init__.py" />
@@ -73,12 +79,15 @@
     <Folder Include="core\" />
     <Folder Include="data\" />
     <Folder Include="config\" />
+    <Folder Include="helpers\" />
     <Folder Include="services\" />
     <Folder Include="web\" />
     <Folder Include="web\static\css\" />
     <Folder Include="web\static\" />
     <Folder Include="web\static\js\" />
     <Folder Include="web\templates\" />
+    <Folder Include="web\templates\admin\" />
+    <Folder Include="web\templates\components\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="config\ChatGPTSettings.py" />

@@ -1,7 +1,7 @@
 ﻿from datetime import datetime
 
 from config.SettingsEnums import TemperatureType
-from .BaseHtmlBuilder import BaseHtmlBuilder
+from web.templates.BaseHtmlBuilder import BaseHtmlBuilder
 from core.WeatherDisplay import WeatherDisplay
 from config.WeatherConfig import WeatherConfig
 
@@ -26,7 +26,7 @@ class AdminHtmlBuilder:
     def Page(title: str, content: str, weatherDisplay: WeatherDisplay, weatherConfig: WeatherConfig) -> str:
         return BaseHtmlBuilder.Page(
             title=F"{title} - Admin",
-            content="Your main admin content here",
+            content=content,
             nav_title="WeatherScreen Admin",
             middleContent=MiddleContent(weatherDisplay, weatherConfig),
             nav_items=[

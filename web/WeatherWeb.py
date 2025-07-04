@@ -6,12 +6,10 @@ from config.WeatherConfig import WeatherConfig
 from core.WeatherDisplay import WeatherDisplay
 from core.WeatherEncoder import WeatherEncoder
 from services.WeatherService import WeatherService
-from web.templates import AdminDashboardHtmlBuilder, AdminHtmlBuilder
+from web.templates.admin import AdminDashboardHtmlBuilder, AdminHtmlBuilder
 
 from .templates.BaseHtmlBuilder import BaseHtmlBuilder
 from .templates.LoginHtmlBuilder import LoginHtmlBuilder
-from .templates.AdminHtmlBuilder import AdminHtmlBuilder
-from .templates.AdminDashboardHtmlBuilder import AdminDashboardHtmlBuilder
 
 class WeatherWeb:
     def __init__(self, config: WeatherConfig, display: WeatherDisplay, encoder: WeatherEncoder, service: WeatherService):

@@ -17,6 +17,7 @@ from config.SettingsEnums import *
 from config.TextElementSettings import TextElementSettings
 from config.WeatherConfig import WeatherConfig
 
+from helpers import DateTimeHelpers, PlatformHelpers
 from services.WeatherService import WeatherService
 
 from data.CurrentData import CurrentData
@@ -31,9 +32,14 @@ class WeatherDisplay:
         self.BasePath = weatherConfig._basePath
         self.Log.debug(F"BasePath: {self.BasePath}")
         self.EmojiFont = "Segoe UI Emoji"
-        if (self.IsRaspberryPi()):
-            self.EmojiFont = "Noto Color Emoji"
         self.Root = root
+        if (PlatformHelpers.IsRaspberryPi()):
+            self.EmojiFont = "Noto Color Emoji"
+            self.Root.overrideredirect(True)
+            self.Root.attributes('-fullscreen', True)
+            self.Root.attributes('-type', "splash")
+        else:
+            self.Root.geometry("1920x1080")
         self.FirstTry = True
         self.WeatherService = weatherService
         self.CurrentData: Optional[CurrentData] = None
@@ -44,12 +50,6 @@ class WeatherDisplay:
         self.LastBackgroundImageTags = None
         self.LastBackgroundImageChange = None
 
-        if self.IsRaspberryPi():
-            self.Root.overrideredirect(True)
-            self.Root.attributes('-fullscreen', True)
-            self.Root.attributes('-type', "splash")
-        else:
-            self.Root.geometry("1920x1080")
 
         self.Root.title("Weather Display")
         self.current_labels = {}
@@ -61,6 +61,7 @@ class WeatherDisplay:
         self.ImageTagMessage = None
 
         self.CheckBackgroundImages()
+
     def CheckBackgroundImages(self):
         allBackgroundImages = self.GetAllBackgroundImages()
         self.Log.info(F"{len(allBackgroundImages)} images found.")
@@ -74,46 +75,14 @@ class WeatherDisplay:
                     img for img in allBackgroundImages
                     if (all(tag in img["Tags"] for tag in checkTags))]
                 if not MatchingImages:
-                    self.Log.warn(F'No image matches tags ["{s}","{c}"]')
-
-    def IsRaspberryPi(self):
-        uname = platform.uname()
-        self.Log.debug(F"IsRaspberryPi: {platform.system()} == 'Linux' and '{uname.machine}'.startswith('aarch') == {uname.machine.startswith('aarch')}")
-        return platform.system() == "Linux" and uname.machine.startswith("aarch")
-
-    def GetUptimeString(self) -> str:
-        delta = datetime.now() - self.Begin
-        totalSeconds = int(delta.total_seconds())
-
-        days = totalSeconds // 86400
-        hours = (totalSeconds % 86400) // 3600
-        minutes = (totalSeconds % 3600) // 60
-        seconds = totalSeconds % 60
-
-        parts = []
-        if (days > 0):
-            parts.append(f"{days}d")
-        if hours > 0 or days > 0:
-            parts.append(f"{hours}h")
-        if minutes > 0 or hours > 0 or days > 0:
-            parts.append(f"{minutes}m")
-        parts.append(f"{seconds}s")
-
-        return ' '.join(parts)
+                    self.Log.warning(F'No image matches tags ["{s}","{c}"]')
 
     def FormattedText(self, date: datetime, settings: FormattedTextElementSettings):
         if (not settings.Enabled):
             return
         f = settings.Format
-        if "%-I" in f:
-            hour = date.hour
-            if (hour > 12):
-                hour -= 12
-            if (hour == 0):
-                hour = 12
-            f = f.replace("%-I", str(hour))
 
-        self.Text(date.strftime(f), settings)
+        self.Text(DateTimeHelpers.HourSafeToString(date, f), settings)
     
     def Text(self, text: str, settings: TextElementSettings, xOffset: int = 0, yOffset: int = 0):
         if (not settings.Enabled):
@@ -173,8 +142,6 @@ class WeatherDisplay:
         s = {k: v for k, v in s.items() if v is not None}
         self.canvas.create_text(settings.X + xOffset, settings.Y + yOffset, text=text, **s)
 
-        
-
     def RefreshScreen(self):
         now = datetime.now()
         DayOfWeek = now.strftime("%A")
@@ -186,7 +153,7 @@ class WeatherDisplay:
         self.Text(DayOfWeek, self.Config.Weather.DayOfWeek)
         self.FormattedText(now, self.Config.Weather.FullDate)
         self.FormattedText(now, self.Config.Weather.Time)
-        self.Text(F"Uptime: {self.GetUptimeString()}", self.Config.Weather.Uptime)
+        self.Text(F"Uptime: {DateTimeHelpers.GetReadableTimeBetween(self.Begin)}", self.Config.Weather.Uptime)
         self.FormattedText(self.CurrentData.LastUpdate, self.Config.Weather.LastUpdated)
         self.FormattedText(self.CurrentData.ObservedTimeLocal, self.Config.Weather.Observed)
         self.Text(F"Source: {self.CurrentData.Source}", self.Config.Weather.Source)
@@ -213,7 +180,7 @@ class WeatherDisplay:
             self.Text(self.ForecastData.Daytime.High, self.Config.Weather.TempHigh)
             self.Text(self.ForecastData.Nighttime.Low, self.Config.Weather.TempLow)
         except Exception as e:
-            self.Log.warn(f"Failed to render weather info: {e}")
+            self.Log.warning(f"Failed to render weather info: {e}")
 
         self.DrawWindIndicator()
         self.DrawRainForecastGraph()
@@ -321,7 +288,7 @@ class WeatherDisplay:
             label = f"{humidity}%"
             self.Text(label, config.Text, xOffset = x + size // 2, yOffset = y + size // 2)
         except Exception as e:
-            self.Log.warn(f"Failed to draw humidity square: {e}")
+            self.Log.warning(f"Failed to draw humidity square: {e}")
 
     def DrawRainSquare(self):
         if (not self.CurrentData or not self.CurrentData.Rain):
@@ -352,7 +319,7 @@ class WeatherDisplay:
             label = f"{rain_inches:.2f}{rainAddon}"
             self.Text(label, config.Text, xOffset=x + size // 2, yOffset=y + size // 2)
         except Exception as e:
-            self.Log.warn(f"Failed to draw rain square: {e}")
+            self.Log.warning(f"Failed to draw rain square: {e}")
 
     def DrawRainForecastGraph(self):
         forecast = self.ForecastData.Next24Hours
@@ -640,7 +607,7 @@ class WeatherDisplay:
         image_dir = os.path.join(self.BasePath, "assets", "backgrounds")
         self.Log.debug(F"image_dir: {image_dir}")
         if not os.path.exists(image_dir):
-            self.Log.warn(f"Background directory does not exist: {image_dir}")
+            self.Log.warning(f"Background directory does not exist: {image_dir}")
             return []
 
         image_data = []
@@ -778,7 +745,7 @@ class WeatherDisplay:
         self.RefreshScreen();
         
 
-        if (self.IsRaspberryPi()):
+        if (PlatformHelpers.IsRaspberryPi()):
             self.Root.after(2000, self.EnsureFullscreen)
 
     def EnsureFullscreen(self):
@@ -819,7 +786,7 @@ class WeatherDisplay:
         self.Root.after(int(delay), self.RefreshSunData)
 
     def AppendToHistory(self):
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now(timezone.utc)
         cutoff = now - timedelta(hours=26)
         currentData = self.CurrentData;
 
@@ -828,8 +795,8 @@ class WeatherDisplay:
         self.DebugBuckets("RefreshStationdata Post-Append")
         newHistory = []
         for line in self.HistoryData.Lines:
-            timestamp = line.ObservedTimeUtc.replace(tzinfo=None)
-            if (timestamp >= cutoff):
+            timestamp = line.ObservedTimeUtc
+            if (DateTimeHelpers.GreaterThanOrEqual(timestamp, cutoff)):
                 newHistory.append(line)
 
         self.HistoryData.Lines = newHistory
@@ -849,7 +816,7 @@ class WeatherDisplay:
 
     def ClassifyWeatherBackground(self):
         condition = self.CurrentData.get("State", "").lower()
-        now = datetime.now().astimezone()
+        now = datetime.now()
         is_night = self.IsNight(now)
 
         try:
@@ -861,7 +828,7 @@ class WeatherDisplay:
                 return "Night"
 
         except Exception as e:
-            self.Log.warn(f"Failed to classify sunrise/sunset window: {e}")
+            self.Log.warning(f"Failed to classify sunrise/sunset window: {e}")
 
         # Weather-based conditions (fallbacks)
         if "rain" in condition or "shower" in condition:
@@ -886,14 +853,16 @@ class WeatherDisplay:
             sunriseTomorrow = self.SunData.Tomorrow.Sunrise.AstronomicalTwilight
             sunsetTomorrow = self.SunData.Tomorrow.Sunset.AstronomicalTwilight
 
-            return time < sunriseToday or sunsetToday < time < sunriseTomorrow or sunsetTomorrow < time
+            return (DateTimeHelpers.LessThan(time, sunriseToday)
+                    or DateTimeHelpers.BetweenNotEqual(sunsetToday, time, sunriseTomorrow)
+                    or DateTimeHelpers.LessThan(sunsetTomorrow, time))
+
         except Exception as e:
-            self.Log.warn(f"is_night exception: {e}")
+            self.Log.warning(f"is_night exception: {e}")
             return False
 
     def IsSunset(self, time):
         try:
-
 
             start = self.SunData.Today.Sunset.Start
             end = self.SunData.Today.Sunset.AstronomicalTwilight
@@ -901,13 +870,9 @@ class WeatherDisplay:
             tomorrowstart = self.SunData.Tomorrow.Sunset.Start
             tomorrowend = self.SunData.Today.Sunset.AstronomicalTwilight
 
-            if (self.Config.Logging.EnableTrace):
-                self.Log.debug(F"Sunset: {start} < {time} < {end} = {start < time < end} or {tomorrowstart} <= {time} <= {tomorrowend} = {tomorrowstart <= time <= tomorrowend}")
-
-            return start <= time <= end or tomorrowstart <= time <= tomorrowend
-
+            return DateTimeHelpers.BetweenOrEqual(start, time, end) or DateTimeHelpers.BetweenOrEqual(tomorrowstart, time, tomorrowend)
         except Exception as e:
-            self.Log.warn(f"Failed to determine sunset time: {e}")
+            self.Log.warning(f"Failed to determine sunset time: {e}")
             return False
 
     def IsSunrise(self, time):
@@ -917,8 +882,10 @@ class WeatherDisplay:
 
             tomorrowstart = self.SunData.Tomorrow.Sunrise.AstronomicalTwilight
             tomorrowend = self.SunData.Tomorrow.Sunrise.Day
-            return start <= time <= end or tomorrowstart <= time <= tomorrowend
+
+            return DateTimeHelpers.BetweenOrEqual(start, time, end) or DateTimeHelpers.BetweenOrEqual(tomorrowstart, time, tomorrowend)
         except:
+            self.Log.warning(f"Failed to determine sunrise time: {e}")
             return False
 
 
