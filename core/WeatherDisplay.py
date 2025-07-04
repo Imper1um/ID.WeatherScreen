@@ -1,9 +1,9 @@
-﻿import json, logging, math, os, platform, random
+﻿import json, logging, math, os, random
+import time
 import exiftool
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Optional
 
 from dateutil import tz
@@ -12,9 +12,12 @@ from PIL import Image, ImageTk
 import tkinter as tk
 from tkinter import ttk
 
-from config.FormattedTextElementSettings import FormattedTextElementSettings
+from .Perf import Perf
+from .Platform import Platform
+from .FontFinder import FontFinder
+from .DrawRender import DrawRender
+
 from config.SettingsEnums import *
-from config.TextElementSettings import TextElementSettings
 from config.WeatherConfig import WeatherConfig
 
 from services.WeatherService import WeatherService
@@ -30,9 +33,6 @@ class WeatherDisplay:
         self.Log = logging.getLogger("WeatherDisplay")
         self.BasePath = weatherConfig._basePath
         self.Log.debug(F"BasePath: {self.BasePath}")
-        self.EmojiFont = "Segoe UI Emoji"
-        if (self.IsRaspberryPi()):
-            self.EmojiFont = "Noto Color Emoji"
         self.Root = root
         self.FirstTry = True
         self.WeatherService = weatherService
@@ -44,7 +44,7 @@ class WeatherDisplay:
         self.LastBackgroundImageTags = None
         self.LastBackgroundImageChange = None
 
-        if self.IsRaspberryPi():
+        if Platform.IsRaspberryPi():
             self.Root.overrideredirect(True)
             self.Root.attributes('-fullscreen', True)
             self.Root.attributes('-type', "splash")
@@ -76,10 +76,10 @@ class WeatherDisplay:
                 if not MatchingImages:
                     self.Log.warn(F'No image matches tags ["{s}","{c}"]')
 
-    def IsRaspberryPi(self):
-        uname = platform.uname()
-        self.Log.debug(F"IsRaspberryPi: {platform.system()} == 'Linux' and '{uname.machine}'.startswith('aarch') == {uname.machine.startswith('aarch')}")
-        return platform.system() == "Linux" and uname.machine.startswith("aarch")
+
+    def GetUptimeSeconds(self) -> int:
+        delta = datetime.now() - self.Begin
+        return int (delta.total_seconds())
 
     def GetUptimeString(self) -> str:
         delta = datetime.now() - self.Begin
@@ -101,131 +101,93 @@ class WeatherDisplay:
 
         return ' '.join(parts)
 
-    def FormattedText(self, date: datetime, settings: FormattedTextElementSettings):
-        if (not settings.Enabled):
-            return
-        f = settings.Format
-        if "%-I" in f:
-            hour = date.hour
-            if (hour > 12):
-                hour -= 12
-            if (hour == 0):
-                hour = 12
-            f = f.replace("%-I", str(hour))
+    def Perf(timing, stage:str):
+        timing.append({"stage":stage, "timer": time.perf_counter()})
 
-        self.Text(date.strftime(f), settings)
-    
-    def Text(self, text: str, settings: TextElementSettings, xOffset: int = 0, yOffset: int = 0):
-        if (not settings.Enabled):
-            return
 
-        fontFamily = "Arial"
-        if (settings.FontFamily):
-            fontFamily = settings.FontFamily
-        fontSize = 12
-        if (settings.FontSize):
-            fontSize = settings.FontSize
-        fontWeight = "normal"
-        if (settings.FontWeight):
-            fontWeight = settings.FontWeight
-        font = (fontFamily, fontSize, fontWeight)
-        anchor = "nw"
-        if (settings.Anchor):
-            anchor = settings.Anchor
-
-        if (settings.Stroke):
-            s = {
-                "anchor": anchor,
-                "mainFill": settings.FillColor
-            }
-            s = {k: v for k, v in s.items() if v is not None}
-            self.CreateTextWithStroke(text, font, settings.X + xOffset, settings.Y + yOffset, **s)
-        else:
-            s = {
-                "fill": settings.FillColor,
-                "font": font,
-                "anchor": anchor
-            }
-            s = {k: v for k, v in s.items() if v is not None}
-            self.canvas.create_text(settings.X + xOffset, settings.Y + yOffset, text=text, **s)
-
-    def EmojiText(self, text: str, settings: TextElementSettings, xOffset: int = 0, yOffset: int = 0):
-        if (not settings.Enabled):
-            return
-
-        fontFamily = self.EmojiFont
-        fontSize = 12
-        if (settings.FontSize):
-            fontSize = settings.FontSize
-        fontWeight = "normal"
-        if (settings.FontWeight):
-            fontWeight = settings.FontWeight
-        font = (fontFamily, fontSize, fontWeight)
-        anchor = "nw"
-        if (settings.Anchor):
-            anchor = settings.Anchor
-
-        s = {
-            "fill": settings.FillColor,
-            "font": font,
-            "anchor": anchor
-        }
-        s = {k: v for k, v in s.items() if v is not None}
-        self.canvas.create_text(settings.X + xOffset, settings.Y + yOffset, text=text, **s)
-
+    def Render(self, destination, drawType="tk"):
+        perf = Perf('Render')
         
-
-    def RefreshScreen(self):
         now = datetime.now()
         DayOfWeek = now.strftime("%A")
 
-        self.CurrentFrame = ttk.LabelFrame(self.Root, text="Weather Test")
-       
-        self.canvas.delete("all")
-        self.LoadBackgroundImage()
-        self.Text(DayOfWeek, self.Config.Weather.DayOfWeek)
-        self.FormattedText(now, self.Config.Weather.FullDate)
-        self.FormattedText(now, self.Config.Weather.Time)
-        self.Text(F"Uptime: {self.GetUptimeString()}", self.Config.Weather.Uptime)
-        self.FormattedText(self.CurrentData.LastUpdate, self.Config.Weather.LastUpdated)
-        self.FormattedText(self.CurrentData.ObservedTimeLocal, self.Config.Weather.Observed)
-        self.Text(F"Source: {self.CurrentData.Source}", self.Config.Weather.Source)
+        perf.mark("DrawBackgroundImage")
+        self.DrawBackgroundImage(destination, drawType)
+        perf.mark("DayOfWeek")
+        DrawRender.Text(destination, drawType, DayOfWeek, self.Config.Weather.DayOfWeek, type="type")
+        perf.mark("FullDate")
+        DrawRender.FormattedText(destination, drawType,now, self.Config.Weather.FullDate)
+        perf.mark("Time")
+        DrawRender.FormattedText(destination, drawType,now, self.Config.Weather.Time)
+        perf.mark("Uptime")
+        DrawRender.Text(destination, drawType,F"Uptime: {self.GetUptimeString()}", self.Config.Weather.Uptime)
+        perf.mark("LastUpdate")
+        DrawRender.FormattedText(destination, drawType,self.CurrentData.LastUpdate, self.Config.Weather.LastUpdated)
+        perf.mark("ObservedTimeLocal")
+        DrawRender.FormattedText(destination, drawType,self.CurrentData.ObservedTimeLocal, self.Config.Weather.Observed)
+        perf.mark("Source")
+        DrawRender.Text(destination, drawType,F"Source: {self.CurrentData.Source}", self.Config.Weather.Source)
+        perf.mark("ImageTags")
         imageTags = F"Requested Image Tags: {self.LastBackgroundImageTags} // This Image Tags: {self.ThisImageTags}"
         if (self.ImageTagMessage):
             imageTags += F" // Image Message: {self.ImageTagMessage}"
 
-        self.Text(imageTags, self.Config.Weather.ImageTags)
+        DrawRender.Text(destination, drawType,imageTags, self.Config.Weather.ImageTags)
 
+        perf.mark("Station")
         if (self.CurrentData.Source == "Station"):
             station = F"Station: {self.CurrentData.StationId}"
-            self.Text(station, self.Config.Weather.Station)
+            DrawRender.Text(destination, drawType,station, self.Config.Weather.Station)
 
         try:
+            perf.mark("GatherData")
             temp = self.CurrentData.CurrentTemp
             feelsLikeTemp = self.CurrentData.FeelsLike
             feelsLike = f"Feels Like: {feelsLikeTemp}°"
             state = self.CurrentData.State
             emoji = self.GetWeatherEmoji(state, now)
             display = f"{temp}°"
-            self.Text(display, self.Config.Weather.CurrentTemp)
-            self.Text(feelsLike, self.Config.Weather.FeelsLike)
-            self.EmojiText(emoji["Emoji"], self.Config.Weather.CurrentTempEmoji)
-            self.Text(self.ForecastData.Daytime.High, self.Config.Weather.TempHigh)
-            self.Text(self.ForecastData.Nighttime.Low, self.Config.Weather.TempLow)
+            perf.mark("CurrentTemp")
+            DrawRender.Text(destination, drawType,display, self.Config.Weather.CurrentTemp)
+            perf.mark("FeelsLike")
+            DrawRender.Text(destination, drawType,feelsLike, self.Config.Weather.FeelsLike)
+            perf.mark("Emoji")
+            DrawRender.EmojiText(destination, drawType,emoji["Emoji"], self.Config.Weather.CurrentTempEmoji)
+            perf.mark("High")
+            DrawRender.Text(destination, drawType,self.ForecastData.Daytime.High, self.Config.Weather.TempHigh)
+            perf.mark("Low")
+            DrawRender.Text(destination, drawType,self.ForecastData.Nighttime.Low, self.Config.Weather.TempLow)
         except Exception as e:
             self.Log.warn(f"Failed to render weather info: {e}")
 
-        self.DrawWindIndicator()
-        self.DrawRainForecastGraph()
-        self.DrawRainSquare()
-        self.DrawTemperatureGraph()
-        self.DrawHumiditySquare()
+        perf.mark("WindIndicator")
+        self.DrawWindIndicator(destination, drawType)
+        perf.mark("RainForecastGraph")
+        self.DrawRainForecastGraph(destination, drawType)
+        perf.mark("RainSquare")
+        self.DrawRainSquare(destination, drawType)
+        perf.mark("TemperatureGraph")
+        self.DrawTemperatureGraph(destination, drawType)
+        perf.mark("HumiditySquare")
+        self.DrawHumiditySquare(destination, drawType)
+        perf.mark("Refresh")
+        self.Root.after(1000, self.RefreshScreen)
+        end = datetime.now()
+        if (now + timedelta(seconds=2) < end):
+            self.Log.warning("Rendering took more than two seconds! Something is lagging!")
+        perf.finish()
+
+    def RefreshScreen(self):
+        self.CurrentFrame = ttk.LabelFrame(self.Root, text="Weather Test")
+       
+        self.canvas.delete("all")
+        self.Render(self.canvas);
 
         self.Root.after(1000, self.RefreshScreen)
 
-    def DrawTemperatureGraph(self):
+    def DrawTemperatureGraph(self, destination, drawType):
         config = self.Config.Weather.TemperatureGraph
-        if (not config.Enabled):
+        if not config.Enabled:
             return
 
         x = config.X
@@ -236,30 +198,32 @@ class WeatherDisplay:
         hourlyTemps = defaultdict(list)
         history = self.HistoryData
 
-        self.canvas.create_line(x, y, x+width, y, fill="white", width=2, smooth=True)
-        self.canvas.create_line(x, y+height, x+width, y+height, fill="white", width=2, smooth=True)
-        
+        if drawType == "tk":
+            destination.create_line(x, y, x + width, y, fill="white", width=2, smooth=True)
+            destination.create_line(x, y + height, x + width, y + height, fill="white", width=2, smooth=True)
+        else:
+            destination.line([(x, y), (x + width, y)], fill="white", width=2)
+            destination.line([(x, y + height), (x + width, y + height)], fill="white", width=2)
 
         now = datetime.now()
-        
-        minTime = now.replace(minute=0,second=0,microsecond=0) - timedelta(hours=24)
-        maxTime = now.replace(minute=0,second=0,microsecond=0)
-        minTimestamp = now + timedelta(days=5)
-        maxTimestamp = now - timedelta(days=5)
+        minTime = now.replace(minute=0, second=0, microsecond=0) - timedelta(hours=24)
+        maxTime = now.replace(minute=0, second=0, microsecond=0)
+
         high = self.ForecastData.Daytime.High
         low = self.ForecastData.Nighttime.Low
         tempRange = max(high - low, 1)
+
         tempPoints = []
         coords = []
 
         for line in history.Lines:
             utcTimestamp = line.ObservedTimeUtc.replace(tzinfo=None)
-            hourBucket = utcTimestamp.replace(minute=0,second=0,microsecond=0)
+            hourBucket = utcTimestamp.replace(minute=0, second=0, microsecond=0)
             if minTime <= hourBucket <= now:
                 hourlyTemps[hourBucket].append(line.CurrentTemp)
 
         for i in range(24):
-            hour = now - timedelta(hours=23-i)
+            hour = now - timedelta(hours=23 - i)
             bucket = hour.replace(minute=0, second=0, microsecond=0)
             values = hourlyTemps.get(bucket, [])
             avgTemp = sum(values) / len(values) if values else None
@@ -275,19 +239,28 @@ class WeatherDisplay:
 
         prevValidIndex = None
 
+        # Draw points and connecting lines
         for i, (xCur, yCur) in enumerate(coords):
             if yCur is not None:
-                self.canvas.create_oval(xCur - 2, yCur - 2, xCur + 2, yCur + 2, fill="white", outline="")
+                if drawType == "tk":
+                    destination.create_oval(xCur - 2, yCur - 2, xCur + 2, yCur + 2, fill="white", outline="")
+                else:
+                    destination.ellipse([xCur - 2, yCur - 2, xCur + 2, yCur + 2], fill="white", outline=None)
 
                 if prevValidIndex is not None:
                     xPrev, yPrev = coords[prevValidIndex]
                     avgTemp = (tempPoints[prevValidIndex] + tempPoints[i]) / 2
                     color = self.GetColorForTemp(avgTemp, low, high)
-                    self.canvas.create_line(xPrev, yPrev, xCur, yCur, fill=color, width=2, smooth=True)
+
+                    if drawType == "tk":
+                        destination.create_line(xPrev, yPrev, xCur, yCur, fill=color, width=2, smooth=True)
+                    else:
+                        destination.line([(xPrev, yPrev), (xCur, yCur)], fill=color, width=2)
 
                 prevValidIndex = i
 
         self.FirstTry = False
+
 
     def GetColorForTemp(self, temp, low, high):
         ratio = (temp - low) / max(high - low, 1)
@@ -299,15 +272,16 @@ class WeatherDisplay:
 
         return f'#{red:02x}{green:02x}{blue:02x}'
 
-    def DrawHumiditySquare(self):
-        if (not self.CurrentData or not self.CurrentData.Humidity):
+    def DrawHumiditySquare(self, destination, drawType):
+        if not self.CurrentData or not self.CurrentData.Humidity:
             return
 
         try:
             humidity = self.CurrentData.Humidity
             config = self.Config.Weather.HumiditySquare
-            if (not config.Enabled):
+            if not config.Enabled:
                 return
+
             x = config.X
             y = config.Y
             size = config.Size
@@ -315,29 +289,37 @@ class WeatherDisplay:
             fill_ratio = humidity / 100
             fill_height = int(size * fill_ratio)
             top_fill_y = y + size - fill_height
-            self.canvas.create_rectangle(x + 1, top_fill_y, x + size - 2, y + size - 2, fill="#00BFFF",outline=None)
-            self.canvas.create_rectangle(x, y, x + size, y + size, outline="white", width=2)
-            self.EmojiText("💦", config.Emoji, xOffset =  x + size // 2, yOffset = y + size // 2)
+
+            if drawType == "tk":
+                destination.create_rectangle(x + 1, top_fill_y, x + size - 2, y + size - 2, fill="#00BFFF", outline=None)
+                destination.create_rectangle(x, y, x + size, y + size, outline="white", width=2)
+            else:
+                destination.rectangle([x + 1, top_fill_y, x + size - 2, y + size - 2], fill="#00BFFF", outline=None)
+                destination.rectangle([x, y, x + size, y + size], outline="white", width=2)
+
+            DrawRender.EmojiText(destination, drawType, "💦", config.Emoji, xOffset=x + size // 2, yOffset=y + size // 2)
             label = f"{humidity}%"
-            self.Text(label, config.Text, xOffset = x + size // 2, yOffset = y + size // 2)
+            DrawRender.Text(destination, drawType, label, config.Text, xOffset=x + size // 2, yOffset=y + size // 2)
+
         except Exception as e:
             self.Log.warn(f"Failed to draw humidity square: {e}")
 
-    def DrawRainSquare(self):
-        if (not self.CurrentData or not self.CurrentData.Rain):
+
+    def DrawRainSquare(self, destination, drawType):
+        if not self.CurrentData or not self.CurrentData.Rain:
             return
 
         try:
             config = self.Config.Weather.RainSquare
-            if (not config.Enabled):
+            if not config.Enabled:
                 return
+
             max_inches = config.MaxRain
             size = config.Size
             x = config.X
             y = config.Y
 
             rain_inches = self.CurrentData.Rain
-            max_inches = config.MaxRain
             rain_inches = min(max(rain_inches, 0), max_inches)
             fill_ratio = rain_inches / max_inches
 
@@ -346,15 +328,22 @@ class WeatherDisplay:
             fill_height = int(size * fill_ratio)
             top_fill_y = y + size - fill_height
 
-            self.canvas.create_rectangle(x, top_fill_y, x + size, y + size, fill="blue", outline="blue")
-            self.canvas.create_rectangle(x, y, x + size, y + size, outline="white", width=2)
-            self.EmojiText("💧", config.Emoji, xOffset=x + size // 2, yOffset= y + size // 2)
+            if drawType == "tk":
+                destination.create_rectangle(x, top_fill_y, x + size, y + size, fill="blue", outline="blue")
+                destination.create_rectangle(x, y, x + size, y + size, outline="white", width=2)
+            else:
+                destination.rectangle([x, top_fill_y, x + size, y + size], fill="blue", outline="blue")
+                destination.rectangle([x, y, x + size, y + size], outline="white", width=2)
+
+            DrawRender.EmojiText(destination, drawType, "💧", config.Emoji, xOffset=x + size // 2, yOffset=y + size // 2)
             label = f"{rain_inches:.2f}{rainAddon}"
-            self.Text(label, config.Text, xOffset=x + size // 2, yOffset=y + size // 2)
+            DrawRender.Text(destination, drawType, label, config.Text, xOffset=x + size // 2, yOffset=y + size // 2)
+
         except Exception as e:
             self.Log.warn(f"Failed to draw rain square: {e}")
 
-    def DrawRainForecastGraph(self):
+
+    def DrawRainForecastGraph(self, destination, drawType):
         forecast = self.ForecastData.Next24Hours
         if not forecast:
             return
@@ -395,9 +384,15 @@ class WeatherDisplay:
                 fillColor = f"#{pixel['Main'][0]:02x}{pixel['Main'][1]:02x}{pixel['Main'][2]:02x}"
                 cloudFillColor = f"#{pixel['Cloud'][0]:02x}{pixel['Cloud'][1]:02x}{pixel['Cloud'][2]:02x}"
 
-                if (config.SkyGradient.EnableCloud):
-                    self.canvas.create_line(pushRight + i, y_start + barMaxHeight, pushRight + i, y_start + barMaxHeight + cloudHeight, fill=cloudFillColor)
-                self.canvas.create_line(pushRight + i, y_start + barMaxHeight + cloudHeight, pushRight + i, y_start + barMaxHeight + gradientHeight, fill=fillColor)
+                if drawType == "tk":
+                    if (config.SkyGradient.EnableCloud):
+                        destination.create_line(pushRight + i, y_start + barMaxHeight, pushRight + i, y_start + barMaxHeight + cloudHeight, fill=cloudFillColor)
+                    destination.create_line(pushRight + i, y_start + barMaxHeight + cloudHeight, pushRight + i, y_start + barMaxHeight + gradientHeight, fill=fillColor)
+                else:
+                    if (config.SkyGradient.EnableCloud):
+                        destination.line([(pushRight + i, y_start + barMaxHeight), (pushRight + i, y_start + barMaxHeight + cloudHeight)], fill=cloudFillColor)
+                    destination.line([(pushRight + i, y_start + barMaxHeight + cloudHeight), (pushRight + i, y_start + barMaxHeight + gradientHeight)], fill=fillColor)
+
                 i += 1
 
         max_rain = 100  # Max rain chance is 100%
@@ -418,23 +413,29 @@ class WeatherDisplay:
             bar_height = (rain_chance / max_rain) * barMaxHeight
             x = x_start + i * (barWidth + barSpacing)
 
-            self.canvas.create_rectangle(
-                x, y_start + barMaxHeight - bar_height, x + barWidth, y_start + barMaxHeight,
-                fill="blue", outline=""
-            )
+            if drawType == "tk":
+                destination.create_rectangle(x, y_start + barMaxHeight - bar_height, x + barWidth, y_start + barMaxHeight, fill="blue", outline="")
+            elif drawType == "image":
+                destination.rectangle([x, y_start + barMaxHeight - bar_height, x + barWidth, y_start + barMaxHeight], fill="blue", outline=None)
 
-            self.Text(hour_label, config.Hour, xOffset = x + 2 + barWidth // 2, yOffset = y_start - 24)
-            self.EmojiText(WeatherEmoji["Emoji"], config.Emoji, xOffset=x + 2 + barWidth // 2, yOffset=y_start + 107)
-            self.Text(F"{cloudCoverPercentage}%", config.CloudCover, xOffset=x + 2 + barWidth // 2, yOffset=y_start + 135)
+            DrawRender.Text(destination, drawType, hour_label, config.Hour, xOffset = x + 2 + barWidth // 2, yOffset = y_start - 24)
+            DrawRender.EmojiText(destination, drawType, WeatherEmoji["Emoji"], config.Emoji, xOffset=x + 2 + barWidth // 2, yOffset=y_start + 107)
+            DrawRender.Text(destination, drawType, F"{cloudCoverPercentage}%", config.CloudCover, xOffset=x + 2 + barWidth // 2, yOffset=y_start + 135)
             
             if rain_amount > 0:
-                self.Text(f"{rain_amount}{rainAddon}", config.RainAmount, xOffset=x + 2 + barWidth // 2, yOffset=y_start - 40)
+                DrawRender.Text(destination, drawType, f"{rain_amount}{rainAddon}", config.RainAmount, xOffset=x + 2 + barWidth // 2, yOffset=y_start - 40)
 
-        self.canvas.create_line(x_start, y_start, x_start + ((barSpacing + barWidth) * 24), y_start, fill="white")
-        self.canvas.create_line(x_start, y_start + barMaxHeight, x_start + ((barSpacing + barWidth) * 24), y_start + barMaxHeight, fill="white")
+        x_end = x_start + ((barSpacing + barWidth) * 24)
+        if drawType == "tk":
+            self.canvas.create_line(x_start, y_start, x_end, y_start, fill="white")
+            self.canvas.create_line(x_start, y_start + barMaxHeight, x_end, y_start + barMaxHeight, fill="white")
+        else:
+            destination.line([(x_start, y_start), (x_end, y_start)], fill="white")
+            destination.line([(x_start, y_start + barMaxHeight), (x_end, y_start + barMaxHeight)], fill="white")
+
 
         if not HasRain:
-            self.Text("No Rain Detected in the next 24 Hours", config.NoRainWarning, xOffset = x_start + ((barWidth + barSpacing) * 12), yOffset = y_start + 25)
+            DrawRender.Text(destination, drawType, "No Rain Detected in the next 24 Hours", config.NoRainWarning, xOffset = x_start + ((barWidth + barSpacing) * 12), yOffset = y_start + 25)
 
     def ToLocalNaive(self, iso_string: str) -> datetime:
         utc = datetime.fromisoformat(iso_string)
@@ -491,8 +492,10 @@ class WeatherDisplay:
             currentTime = startTime + timedelta(seconds=secondsPerPixel * pixels)
             iCur = times[iTime]
             iNext = times[iTime + 1]
-            if (currentTime >= iNext["Time"]):
+            while (currentTime >= iNext["Time"] and iTime + 1 <= len(times)):
                 iTime += 1
+                if (iTime + 1 > len(times)):
+                    iTime = len(times) - 1
                 iCur = times[iTime]
                 iNext = times[iTime + 1]
             ratio = self.CalculateTimeRatio(currentTime, iCur["Time"], iNext["Time"])
@@ -537,7 +540,7 @@ class WeatherDisplay:
     def CalculateChannel(self, channel1, channel2, percent):
         return int(channel1 + (channel2 - channel1) * percent)
 
-    def DrawWindIndicator(self):
+    def DrawWindIndicator(self, destination, drawType):
         config = self.Config.Weather.WindIndicator
         radius = config.Size
         x = config.X
@@ -548,7 +551,12 @@ class WeatherDisplay:
         direction = self.CurrentData.WindDirection
         addon = "MPH" if self.Config.Weather.Wind == WindType.MPH else "KPH"
 
-        self.canvas.create_oval(x - radius, y - radius, x + radius, y + radius, outline="white", width=3)
+        
+        if drawType == "tk":
+            destination.create_oval(x - radius, y - radius, x + radius, y + radius, outline="white", width=3)
+        else:
+            destination.ellipse([x - radius, y - radius, x + radius, y + radius], outline="white", width=3)
+
         font = ("Arial", 22, "bold")
         degreeFont = ("Arial", 18)
 
@@ -579,15 +587,21 @@ class WeatherDisplay:
             angleRad = math.radians(pastDirection - 90)
             fadedX = x + math.cos(angleRad) * radius * 0.95
             fadedY = y + math.sin(angleRad) * radius * 0.95
-            self.canvas.create_line(x, y, fadedX, fadedY, fill=gray, width=3, arrow=tk.LAST)
+            if drawType == "tk":
+                destination.create_line(x, y, fadedX, fadedY, fill=gray, width=3, arrow=tk.LAST)
+            else:
+                destination.line([(x, y), (fadedX, fadedY)], fill=gray, width=3)
 
         for dx, dy in [(-2,-2), (-2,0), (-2,2), (0,-2), (0,2), (2,-2), (2,0), (2,2)]:
-            self.canvas.create_line(x + dx, y + dy, end_x + dx, end_y + dy, fill="black", width=5, arrow=tk.LAST)
+            if drawType == "tk":
+                destination.create_line(x, y, end_x, end_y, fill="white", width=5, arrow=tk.LAST)
+            else:
+                destination.line([(x, y), (end_x, end_y)], fill="lime", width=5)
 
         self.canvas.create_line(x, y, end_x, end_y, fill="white", width=5, arrow=tk.LAST)
-        self.Text(speed_text, config.Wind, xOffset=x, yOffset= y - 30)
-        self.Text(gust_text, config.Gust, xOffset=x, yOffset=y)
-        self.Text(degree_label, config.Direction, xOffset=x, yOffset=y + 30)
+        DrawRender.Text(destination, drawType, speed_text, config.Wind, xOffset=x, yOffset= y - 30)
+        DrawRender.Text(destination, drawType, gust_text, config.Gust, xOffset=x, yOffset=y)
+        DrawRender.Text(destination, drawType, degree_label, config.Direction, xOffset=x, yOffset=y + 30)
 
     def GetWeatherEmoji(self, state, time):
         text = state.lower()
@@ -616,14 +630,16 @@ class WeatherDisplay:
             return {"Emoji": Moon.ToEmoji, "Color": "#DDDDDD"}
         if IsNight and Moon == MoonPhase.WaningCrescent:
             return {"Emoji": Moon.ToEmoji, "Color": "#CCCCCC"}
+        if "partly" in text and "cloudy" in text:
+            return {"Emoji": "🌤️", "Color": "#FFD966"}  # Warm sunny
+        if "cloudy" in text:
+            return {"Emoji": "☁️", "Color": "#EEEEEE"}
+        if "overcast" in text:
+            return {"Emoji": "☁️", "Color": "#B0C4DE"}  # LightSteelBlue
         if "sun" in text and "cloud" in text:
             return {"Emoji": "⛅", "Color": "#FFE066"}  # Light Yellow/Cloud mix
-        if "partly" in text:
-            return {"Emoji": "🌤️", "Color": "#FFD966"}  # Warm sunny
         if "sun" in text or "clear":
             return {"Emoji": "☀️", "Color": "#FFA500"}  # Orange
-        if "cloud" in text or "overcast" in text:
-            return {"Emoji": "☁️", "Color": "#B0C4DE"}  # LightSteelBlue
         if "snow" in text:
             return {"Emoji": "🌨️", "Color": "#ADD8E6"}  # Light Blue
         if "fog" in text or "mist" in text:
@@ -674,11 +690,28 @@ class WeatherDisplay:
         return image_data
 
 
-    def LoadBackgroundImage(self):
-        img = Image.open(self.LastBackgroundImagePath)
-        img = img.resize((self.canvas.winfo_width(), self.canvas.winfo_height()), Image.Resampling.LANCZOS)
-        self.BackgroundImage = ImageTk.PhotoImage(img)
-        self.canvas.create_image(0, 0, image=self.BackgroundImage, anchor="nw")
+    def DrawBackgroundImage(self, destination, drawType):
+        if not self.LastBackgroundImagePath or not os.path.exists(self.LastBackgroundImagePath):
+            return
+
+        try:
+            img = Image.open(self.LastBackgroundImagePath)
+
+            if drawType == "tk":
+                width = destination.winfo_width()
+                height = destination.winfo_height()
+                img = img.resize((width, height), Image.Resampling.LANCZOS)
+                self.BackgroundImage = ImageTk.PhotoImage(img)
+                destination.create_image(0, 0, image=self.BackgroundImage, anchor="nw")
+
+            elif drawType == "image":
+                width, height = destination.im.size
+                img = img.resize((width, height), Image.Resampling.LANCZOS)
+                destination.im.paste(img)
+
+        except Exception as e:
+            self.Log.warning(f"Failed to load background image: {e}")
+
 
     def ChangeBackgroundImage(self):
         now = datetime.now()
@@ -778,7 +811,7 @@ class WeatherDisplay:
         self.RefreshScreen();
         
 
-        if (self.IsRaspberryPi()):
+        if (Platform.IsRaspberryPi()):
             self.Root.after(2000, self.EnsureFullscreen)
 
     def EnsureFullscreen(self):
@@ -835,9 +868,19 @@ class WeatherDisplay:
         self.HistoryData.Lines = newHistory
         self.DebugBuckets("RefreshStationdata Post-Filter")
 
+    def UpdateCurrentData(self, newData):
+        for fieldName in vars(newData):
+            newValue = getattr(newData, fieldName)
+            if newValue is not None:
+                setattr(self.CurrentData, fieldName, newValue)
+
     def RefreshCurrentData(self):
         currentData = self.WeatherService.GetCurrentData()
-        self.CurrentData = currentData;
+        if (self.CurrentData is None):
+            self.CurrentData = currentData;
+        elif (not currentData is None):
+            self.UpdateCurrentData(currentData)
+            
         self.AppendToHistory()
 
         if (self.Config.Logging.EnableTrace):
@@ -863,7 +906,6 @@ class WeatherDisplay:
         except Exception as e:
             self.Log.warn(f"Failed to classify sunrise/sunset window: {e}")
 
-        # Weather-based conditions (fallbacks)
         if "rain" in condition or "shower" in condition:
             return "Rainy"
         if "sunny" in condition and not is_night:
@@ -879,46 +921,58 @@ class WeatherDisplay:
 
     def IsNight(self, time):
         try:
-            
-            sunriseToday = self.SunData.Today.Sunrise.AstronomicalTwilight
-            sunsetToday = self.SunData.Today.Sunset.AstronomicalTwilight
+            compareTime = time.replace(tzinfo=None)
+            sunriseToday = self.SunData.Today.Sunrise.AstronomicalTwilight.replace(tzinfo=None)
+            sunsetToday = self.SunData.Today.Sunset.AstronomicalTwilight.replace(tzinfo=None)
 
-            sunriseTomorrow = self.SunData.Tomorrow.Sunrise.AstronomicalTwilight
-            sunsetTomorrow = self.SunData.Tomorrow.Sunset.AstronomicalTwilight
+            sunriseTomorrow = self.SunData.Tomorrow.Sunrise.AstronomicalTwilight.replace(tzinfo=None)
+            sunsetTomorrow = self.SunData.Tomorrow.Sunset.AstronomicalTwilight.replace(tzinfo=None)
 
-            return time < sunriseToday or sunsetToday < time < sunriseTomorrow or sunsetTomorrow < time
+            return compareTime < sunriseToday or sunsetToday < compareTime < sunriseTomorrow or sunsetTomorrow < compareTime
         except Exception as e:
-            self.Log.warn(f"is_night exception: {e}")
+            def hasTz(i:datetime):
+                if (i.timetz is None): return "tznone"
+                return "tzyes"
+            self.Log.warn(f"is_night exception: {e} ... time = {hasTz(time)} ... sunriseToday = {hasTz(sunriseToday)} ... sunsetToday = {hasTz(sunsetToday)} ... sunriseTomorrow = {hasTz(sunriseTomorrow)} ... sunsetTomorrow = {hasTz(sunsetTomorrow)}")
+            
             return False
 
     def IsSunset(self, time):
         try:
 
+            compareTime = time.replace(tzinfo=None)
+            start = self.SunData.Today.Sunset.Start.replace(tzinfo=None)
+            end = self.SunData.Today.Sunset.AstronomicalTwilight.replace(tzinfo=None)
 
-            start = self.SunData.Today.Sunset.Start
-            end = self.SunData.Today.Sunset.AstronomicalTwilight
-
-            tomorrowstart = self.SunData.Tomorrow.Sunset.Start
-            tomorrowend = self.SunData.Today.Sunset.AstronomicalTwilight
+            tomorrowstart = self.SunData.Tomorrow.Sunset.Start.replace(tzinfo=None)
+            tomorrowend = self.SunData.Today.Sunset.AstronomicalTwilight.replace(tzinfo=None)
 
             if (self.Config.Logging.EnableTrace):
                 self.Log.debug(F"Sunset: {start} < {time} < {end} = {start < time < end} or {tomorrowstart} <= {time} <= {tomorrowend} = {tomorrowstart <= time <= tomorrowend}")
 
-            return start <= time <= end or tomorrowstart <= time <= tomorrowend
+            return start <= compareTime <= end or tomorrowstart <= compareTime <= tomorrowend
 
         except Exception as e:
-            self.Log.warn(f"Failed to determine sunset time: {e}")
+            def hasTz(i:datetime):
+                if (i.timetz is None): return "tznone"
+                return "tzyes"
+            self.Log.warn(f"Failed to determine sunset time: {e} ... time = {hasTz(time)} ... start = {hasTz(start)} ... end = {hasTz(end)} ... tomorrowstart = {hasTz(tomorrowstart)} ... tomorrowend = {hasTz(tomorrowend)}")
             return False
 
     def IsSunrise(self, time):
         try:
-            start = self.SunData.Today.Sunrise.AstronomicalTwilight
-            end = self.SunData.Today.Sunrise.Day
+            compareTime = time.replace(tzinfo=None)
+            start = self.SunData.Today.Sunrise.AstronomicalTwilight.replace(tzinfo=None)
+            end = self.SunData.Today.Sunrise.Day.replace(tzinfo=None)
 
-            tomorrowstart = self.SunData.Tomorrow.Sunrise.AstronomicalTwilight
-            tomorrowend = self.SunData.Tomorrow.Sunrise.Day
-            return start <= time <= end or tomorrowstart <= time <= tomorrowend
-        except:
+            tomorrowstart = self.SunData.Tomorrow.Sunrise.AstronomicalTwilight.replace(tzinfo=None)
+            tomorrowend = self.SunData.Tomorrow.Sunrise.Day.replace(tzinfo=None)
+            return start <= compareTime <= end or tomorrowstart <= compareTime <= tomorrowend
+        except Exception as e:
+            def hasTz(i:datetime):
+                if (i.timetz is None): return "tznone"
+                return "tzyes"
+            self.Log.warn(f"Failed to determine sunrise time: {e} ... time = {hasTz(time)} ... start = {hasTz(start)} ... end = {hasTz(end)} ... tomorrowstart = {hasTz(tomorrowstart)} ... tomorrowend = {hasTz(tomorrowend)}")
             return False
 
 
@@ -930,8 +984,3 @@ class WeatherDisplay:
 
         self.Root.after(60 * 60 * 1000, self.RefreshForecastData)
             
-    def CreateTextWithStroke(self, text, font, x, y, anchor = "nw", mainFill="white"):
-        for dx, dy in [(-2,-2), (-2,0), (-2,2), (0,-2), (0,2), (2,-2), (2,0), (2,2)]:
-            self.canvas.create_text(x + dx, y + dy, text=text, font=font, fill="black", anchor=anchor)
-
-        self.canvas.create_text(x, y, text=text, font=font, fill=mainFill, anchor=anchor)

@@ -19,8 +19,37 @@ h2.top-header {
 
 .navbar .middle-content .middle-item {
     white-space: nowrap;
+    margin-right: 10px;
+    
 }
 
 .middle-content .middle-item .middle-item-title {
-    font-weight: bold
+    font-weight: bold;
+    margin-right: 4px;
+}
+
+.wind-circle {
+    background-color: transparent;
+    border-radius: 10px;
+}
+
+.wind-circle svg {
+    display: block;
+    margin: auto;
+    background-color: transparent;
+}
+
+.rain-bars {
+    height: 200px;
+}
+
+.rain-bar {
+    text-align: center;
+    vertical-align: bottom;
+    height: 200px;
+}
+
+.rain-baramount {
+    width: 10px;
+    background-color: blue;
 }

@@ -98,7 +98,7 @@ class WeatherUndergroundService:
                     UVIndex=obs.get("uvHigh", 0.0),
                     Pressure=pressure,
                     Rain=rain,
-                    LastUpdate=datetime.utcnow(),
+                    LastUpdate=datetime.now(),
                     ObservedTimeLocal=timestampLocal,
                     ObservedTimeUtc=timestampUtc
                 )
@@ -145,7 +145,7 @@ class WeatherUndergroundService:
             UVIndex=obs.get("uv", 0.0),
             Pressure=pressure,
             Rain=rain,
-            LastUpdate=datetime.utcnow(),
+            LastUpdate=datetime.now(),
             ObservedTimeLocal=timestampLocal,
             ObservedTimeUtc=timestampUtc
         )

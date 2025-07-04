@@ -1,6 +1,11 @@
-﻿import threading, logging, secrets, os
+﻿from io import BytesIO
+import threading, logging, secrets, os
 
-from flask import Flask, request, redirect, url_for, session, render_template_string
+from datetime import datetime
+import traceback
+from PIL import Image, ImageDraw
+from flask import Flask, request, redirect, send_file, url_for, session, render_template_string
+from flask.json import jsonify
 
 from config.WeatherConfig import WeatherConfig
 from core.WeatherDisplay import WeatherDisplay
@@ -29,6 +34,8 @@ class WeatherWeb:
         self.Encoder = encoder
         self.Service = service
         self._setupRoutes()
+
+        self.LastRender = None
 
     def _setupRoutes(self):
         self._setupPublicRoutes()
@@ -63,6 +70,92 @@ class WeatherWeb:
         @self.AdminApp.route("/")
         def admin_root():
             return render_template_string(AdminDashboardHtmlBuilder.Page(self.Display, self.Config))
+
+        @self.AdminApp.route("/currentscreen.png")
+        def currentScreenImage():
+            if (self.LastRender):
+                return self.LastRender
+            try:
+                width, height = 1920, 1080
+                img = Image.new("RGB", (width, height), "#0F0")
+                draw = ImageDraw.Draw(img)
+                self.Display.Render(draw, drawType = "image")
+
+                buf = BytesIO()
+                img.save(buf, format="PNG")
+                buf.seek(0)
+
+                self.LastRender = send_file(buf, mimetype="image/png");
+                return self.LastRender;
+            except Exception as e:
+                self.Log.warning(f"Error rendering current screen: {e}")
+                self.Log.warning(traceback.format_exc())
+                return ("Failed to render image", 500)
+
+        @self.AdminApp.route("/api/current-data")
+        def api_current_data():
+            try:
+                current = self.Service.GetCurrentData()
+                emoji = self.Display.GetWeatherEmoji(current.State, current.ObservedTimeLocal)
+                now = datetime.now()
+                timeDisplay = BaseHtmlBuilder.BuildLocalTime(now)
+                timeData = BaseHtmlBuilder.BuildLocalDataTime(now)
+                uptime_seconds = self.Display.GetUptimeSeconds()
+                uptime_string = self.Display.GetUptimeString()
+                sunDisplay = 'Daylight'
+                if (self.Display.IsSunset(datetime.now())):
+                    sunDisplay = 'Sunset'
+                elif (self.Display.IsSunrise(datetime.now())):
+                    sunDisplay = 'Sunrise'
+                elif (self.Display.IsNight(datetime.now())):
+                    sunDisplay = 'Night'
+
+                secondsAgo = int((datetime.now() - current.LastUpdate).total_seconds())
+                pressure = "No Pressure Info"
+                if (current.Pressure > 1):
+                    pressure = F"{current.Pressure:.1f}"
+
+                response = {
+                    "current-emoji": { "content": emoji["Emoji"] },
+                    "current-state": { "content": current.State },
+                    "current-cloudcover": { "content": f"{current.CloudCover}" },
+                    "current-temp": { "content": f"{current.CurrentTemp:.1f}" },
+                    "current-feelslike": { "content": f"{current.FeelsLike:.1f}" },
+                    "current-heatindex": { "content": f"{current.HeatIndex:.1f}" },
+                    "current-dewpoint": { "content": f"{current.DewPoint:.1f}" },
+                    "current-pressure": { "content": pressure },
+                    "current-precipitation": { "content": f"{current.Rain:.2f}" },
+                    "current-humidity": {"content": f"{current.Humidity}"},
+                    "current-sun": { "content": sunDisplay },
+
+                    "localtime": {
+                        "content": timeDisplay,
+                        "data": [{"key": "data-time", "content": timeData}]
+                    },
+                    "uptime": {
+                        "content": uptime_string,
+                        "data": [{"key": "data-seconds", "content": str(uptime_seconds)}]
+                    },
+                    "current-lastupdated": {"content":current.LastUpdate.strftime("%b %d, %Y %I:%M:%S %p")},
+                    "current-lastquery": {"content":datetime.now().strftime("%b %d, %Y %I:%M:%S %p")},
+                    "updatedago": {
+                        "content": str(secondsAgo) + "s",
+                        "data": [{"key": "data-seconds", "content": str(secondsAgo)}]
+                     },
+                    "queryago": {
+                        "content": "0s",
+                        "data": [{"key": "data-seconds", "content": "0"}]
+                     }
+                }
+
+                return jsonify(response)
+
+            except Exception as e:
+                self.Log.warning(f"Failed to build current-data response: {e}")
+                
+                return jsonify({}), 500
+
+
 
     def start(self):
         if not self.Config.Web.Enabled:

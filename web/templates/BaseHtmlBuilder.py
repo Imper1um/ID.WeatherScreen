@@ -7,7 +7,12 @@ def TopHeader() -> str:
         <html>
         '''
 
-def Header(title: str) -> str:
+def Header(title: str, jsScripts: list[str] = None) -> str:
+    scriptTags = ""
+    if (jsScripts):
+        scriptTags = "\n".join(
+            F'<script src="{src}" defer></script>' for src in jsScripts)
+
     return F'''
         <head>
             <title>{title}</title>
@@ -16,6 +21,7 @@ def Header(title: str) -> str:
             <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js" integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q" crossorigin="anonymous"></script>
             <link rel="stylesheet" type="text/css" href="/static/css/site.css">
+            {scriptTags}
         </head>
         '''
 
@@ -66,11 +72,12 @@ class BaseHtmlBuilder:
         bodyClasses: str = "",
         bodyStyle: str = "",
         nav_title: str = "",
-        nav_items: list[tuple[str, str]] = []
+        nav_items: list[tuple[str, str]] = [],
+        jsScripts: list[str] = None,
     ):
         return F"""
             {TopHeader()}
-            {Header(title)}
+            {Header(title, jsScripts)}
             {Body(content, classes=bodyClasses, style=bodyStyle, nav_title=nav_title, nav_items=nav_items, brandLink=brandLink, middleContent=middleContent)}
             {Footer()}
         """
@@ -103,19 +110,31 @@ class BaseHtmlBuilder:
         timeDisplay = F"{hour}:{time.strftime("%M:%S")} {ampm}"
         return timeDisplay
 
-    def MiddleItem(type: str, title: str, content: str, dataContent: str = "", addon: str = "", classes: str = ""):
+    def BuildLocalDataTime(time: datetime) -> str:
+        hour = time.hour
+        minute = time.minute
+        second = time.second
+        ampm = "am" if hour < 12 else "pm"
+
+        hour = hour % 12 or 12
+
+        return f"{hour}:{minute:02}:{second:02}:{ampm}"
+
+    def MiddleItem(type: str, title: str, content: str, dataContent: list[dict[str, str]] = None, addon: str = "", classes: str = "", dataClasses: str = ""):
         addonDisplay = ""
         if (addon):
             addonDisplay = F'''
             <span class="middle-item-addon">{addon}</span>
             '''
 
-        dataDisplay = ""
+        dataAttributes = ""
         if (dataContent):
-            dataDisplay = F'''
-                data-{type}="{dataContent}"
-                '''
+            for item in dataContent:
+                key = item.get("key", "").strip()
+                value = item.get("content", "")
+                if key:
+                    dataAttributes += f' data-{key}="{value}"'
                 
         return F'''
-        <div class="{type} middle-item {classes}"><span class="middle-item-title">{title}:</span><span id="{type}" class="middle-item-data" {dataDisplay}>{content}</span>{addonDisplay}</div>
+        <div class="{type} middle-item {classes}"><span class="middle-item-title">{title}:</span><span id="{type}" class="middle-item-data {dataClasses}" {dataAttributes}>{content}</span>{addonDisplay}</div>
         '''
