@@ -42,6 +42,13 @@
     <Compile Include="config\WebConfig.py" />
     <Compile Include="config\WindIndicatorSettings.py" />
     <Compile Include="config\__init__.py" />
+    <Compile Include="core\drawing\CanvasWrapper.py" />
+    <Compile Include="core\drawing\HumiditySquare.py" />
+    <Compile Include="core\drawing\RainForecastGraph.py" />
+    <Compile Include="core\drawing\RainSquare.py" />
+    <Compile Include="core\drawing\TemperatureGraph.py" />
+    <Compile Include="core\drawing\WindIndicator.py" />
+    <Compile Include="core\drawing\__init__.py" />
     <Compile Include="core\__init__.py" />
     <Compile Include="data\CurrentData.py" />
     <Compile Include="data\ForecastData.py" />
@@ -49,6 +56,7 @@
     <Compile Include="data\__init__.py" />
     <Compile Include="helpers\DateTimeHelpers.py" />
     <Compile Include="helpers\PlatformHelpers.py" />
+    <Compile Include="helpers\WeatherHelpers.py" />
     <Compile Include="helpers\__init__.py" />
     <Compile Include="ID.WeatherScreen.py" />
     <Compile Include="data\SunData.py" />
@@ -77,6 +85,7 @@
     <Folder Include="assets\backgrounds\" />
     <Folder Include="assets\unprocessed\" />
     <Folder Include="core\" />
+    <Folder Include="core\drawing\" />
     <Folder Include="data\" />
     <Folder Include="config\" />
     <Folder Include="helpers\" />
