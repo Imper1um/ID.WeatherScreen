@@ -1,21 +1,14 @@
-import base64
-import json
-import mimetypes
-import os
-from re import S
-import shutil
-import openai
-import exiftool
-import logging
+﻿import base64, exiftool, json, logging, mimetypes, openai, os, shutil
+
 from pathlib import Path
-from WeatherConfig import WeatherConfig
+from config.WeatherConfig import WeatherConfig
 
 
 class WeatherEncoder:
     def __init__(self, config: WeatherConfig):
         self.Log = logging.getLogger("WeatherEncoder")
         self.Config = config
-        self.BasePath = Path(__file__).resolve().parent
+        self.BasePath = config._basePath
         self.CheckPath = os.path.join(self.BasePath, "assets","unprocessed")
         self.ProcessedPath = os.path.join(self.BasePath, "assets","backgrounds")
 
@@ -82,13 +75,13 @@ class WeatherEncoder:
                     responseMessage = ""
                     if (len(Tags) < 2):
                         responseMessage = F"You provided {len(Tags)} but you should only provide two comma-delimited tags."
-                        self.Log.warn(F"WeatherEncoder: ChatGPT provided {len(Tags)}, which is incorrect.")
+                        self.Log.warning(F"WeatherEncoder: ChatGPT provided {len(Tags)}, which is incorrect.")
                     elif (not any (t in allStates for t in Tags)):
                         responseMessage = F"Neither of the tags you provided contained a valid Timing Tag. Remember, you MUST include one tag from the following list: " + allStatesItems
-                        self.Log.warn(F"WeatherEncoder: ChatGPT didn't provide a Timing Tag.")
+                        self.Log.warning(F"WeatherEncoder: ChatGPT didn't provide a Timing Tag.")
                     elif (not any (t in allConditions for t in Tags)):
                         responseMessage = F"Neither of the tags you provided contained a valid Weather Type Tag. Remember, you MUST include one tag from the following list: " + allConditionsItems
-                        self.Log.warn(F"WeatherEncoder: ChatGPT didn't provide a Weather Type Tag.")
+                        self.Log.warning(F"WeatherEncoder: ChatGPT didn't provide a Weather Type Tag.")
                     else:
                         isValidResponse = True
                         self.Log.info(F"WeatherEncoder: ChatGPT Success! ChatGPT Tagged {image} with {Tags}")
@@ -96,7 +89,7 @@ class WeatherEncoder:
                         messages.append({"role":"user", "content": responseMessage})
 
             if (not isValidResponse):
-                self.Log.warn(F"WeatherEncoder: ChatGPT just didn't work this time. Stopping.")
+                self.Log.warning(F"WeatherEncoder: ChatGPT just didn't work this time. Stopping.")
                 continue
 
             if (self.EncodeImage(imagePath, Tags)):

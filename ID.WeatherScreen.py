@@ -1,19 +1,21 @@
-from ConfigChangeHandler import ConfigChangeHandler
-from logging.handlers import TimedRotatingFileHandler
+﻿import tkinter as tk
+import logging, os, sys, threading
+
+from datetime import datetime
 from pathlib import Path
 from watchdog.observers import Observer
-from WeatherService import WeatherService
-from WeatherDisplay import WeatherDisplay
-from WeatherEncoder import WeatherEncoder
-from WeatherConfig import WeatherConfig
-from datetime import datetime
-import tkinter as tk
-import logging
-import os
-import sys
-import threading
+from logging.handlers import TimedRotatingFileHandler
 
-config = WeatherConfig.load()
+from config.ConfigChangeHandler import ConfigChangeHandler
+from config.WeatherConfig import WeatherConfig
+from core.WeatherDisplay import WeatherDisplay
+from core.WeatherEncoder import WeatherEncoder
+from services.WeatherService import WeatherService
+from web.WeatherWeb import WeatherWeb
+
+BASE_PATH = Path(__file__).resolve().parent
+
+config = WeatherConfig.load(BASE_PATH)
 config.save()
 
 observer = Observer()
@@ -22,8 +24,6 @@ observer.schedule(handler, path=str(config._basePath), recursive=False)
 
 thread = threading.Thread(target=observer.start, daemon=True)
 thread.start()
-
-BASE_PATH = Path(__file__).resolve().parent
 
 ENABLE_TRACE = config.Logging.EnableTrace
 LEVEL = config.Logging.LoggingLevel.upper()
@@ -75,6 +75,8 @@ if (not ENABLE_TRACE):
     urllibLogger.setLevel(logging.WARNING)
     pilPngLogger = logging.getLogger("PIL.PngImagePlugin")
     pilPngLogger.setLevel(logging.WARNING)
+    werkzugLogger = logging.getLogger("werkzeug")
+    werkzugLogger.setLevel(logging.WARNING)
 
 Log = logging.getLogger("ID.WeatherScreen")
 Log.info("Started.")
@@ -87,9 +89,11 @@ if not config.Weather.Location:
     sys.exit()
 
 if config.Weather.StationCode and not config.Services.WeatherUnderground.Key:
-    Log.warn("Weather.StationCode is mentioned but there is no Services.WeatherUnderground.Key. No weather updates can be made for this station. It doesn't prevent startup, but it will not show live data.")
+    Log.warning("Weather.StationCode is mentioned but there is no Services.WeatherUnderground.Key. No weather updates can be made for this station. It doesn't prevent startup, but it will not show live data.")
 
 weatherEncoder = None
+Log.info("Initializing Encoder...")
+
 if not config.ChatGPT.Key:
     Log.info("No ChatGPT.Key, so WeatherEncoder will not process unprocessed files!")
 else:
@@ -98,7 +102,7 @@ else:
         weatherEncoder.ProcessAllFiles()
         Log.info("WeatherEncoder is online.")
     except Exception as ex:
-        Log.warn(F"WeatherEncoder failed, and so WeatherEncoder will not process unprocessed files! Check to make sure your CHATGPT_KEY has permission to execute queries, and that your CHATGPT_KEY has money in the account.")
+        Log.warning(F"WeatherEncoder failed, and so WeatherEncoder will not process unprocessed files! Check to make sure your CHATGPT_KEY has permission to execute queries, and that your CHATGPT_KEY has money in the account.")
         weatherEncoder = None
 
 imageDirectory = os.path.join(BASE_PATH, "assets", "backgrounds")
@@ -110,10 +114,20 @@ if len(os.listdir(imageDirectory)) == 0:
     sys.exit()
 
 #try:
+Log.info("Initializing Services...")
 service = WeatherService(config)
+
+
+Log.info("Initializing Interface...")
 root = tk.Tk()
 root.configure(bg="#00ff00")
-display = WeatherDisplay(root, service, weatherEncoder, config)
+display = WeatherDisplay(root, service, config)
+
+Log.info("Initializing Web...")
+web = WeatherWeb(config, display, weatherEncoder, service)
+
+Log.info("Starting systems...")
+web.start()
 display.StartDataRefresh()
 root.mainloop();
 #except:

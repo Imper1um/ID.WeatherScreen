@@ -1,9 +1,11 @@
-import logging
-import requests
+import logging, requests
 from datetime import datetime, timedelta
-from CurrentData import *
-from ForecastData import *
-from WeatherConfig import *
+
+from config.SettingsEnums import *
+from config.WeatherConfig import WeatherConfig
+
+from data.CurrentData import *
+from data.ForecastData import *
 
 class WeatherAPIService:
     def __init__(self, config: WeatherConfig):

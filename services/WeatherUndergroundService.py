@@ -1,11 +1,13 @@
+﻿import dateutil, logging, requests
+
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
-import dateutil
-import logging
-import requests
-from CurrentData import CurrentData
-from HistoryData import HistoryData, HistoryLine
-from WeatherConfig import *
+
+from config.WeatherConfig import WeatherConfig
+from config.SettingsEnums import *
+
+from data.CurrentData import CurrentData
+from data.HistoryData import HistoryData, HistoryLine
 
 def f_to_c(f:float) -> float: return (f - 32) * 5.0 / 9.0 if f is not None else None
 def inhg_to_mb(hg:float) -> float: return hg * 33.8639 if hg is not None else None
@@ -162,7 +164,7 @@ class WeatherUndergroundService:
         }
 
         try:
-            response = requests.get(self.StationUrl, params=params)
+            response = requests.get(self.StationUrl, params=params,headers={'Cache-Control': 'no-cache', "Pragma": 'no-cache'})
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:

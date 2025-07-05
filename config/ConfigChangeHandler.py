@@ -1,7 +1,8 @@
+﻿import logging, time
+
 from watchdog.events import FileSystemEventHandler
-from WeatherConfig import WeatherConfig
-import logging
-import time
+
+from .WeatherConfig import WeatherConfig
 
 class ConfigChangeHandler(FileSystemEventHandler):
     def __init__(self, config: WeatherConfig, debounce_seconds: float = 1.0):

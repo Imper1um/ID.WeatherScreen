@@ -1,5 +1,5 @@
-from datetime import datetime
-from dataclasses import dataclass, asdict, field
+﻿from datetime import datetime
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -27,3 +27,4 @@ class CurrentData:
     ObservedTimeLocal: Optional[datetime] = None
     Latitude: Optional[float] = None
     Longitude: Optional[float] = None
+    
