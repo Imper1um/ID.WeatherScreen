@@ -30,7 +30,7 @@ from services.WeatherService import WeatherService
 
 from data.CurrentData import CurrentData
 from data.ForecastData import ForecastData
-from data.HistoryData import HistoryData
+from data.HistoryData import HistoryData, HistoryLine
 from data.SunData import SunData
 
 def GetAllElements(wrapper: CanvasWrapper, settings: WeatherSettings) -> List[ElementBase]:
@@ -311,13 +311,33 @@ class WeatherDisplay:
         cutoff = now - timedelta(hours=26)
         currentData = self.CurrentData;
 
-        self.HistoryData.Lines.append(currentData)
+        entry = HistoryLine(
+            Source=currentData.Source,
+            StationId=currentData.StationId,
+            WindDirection=currentData.WindDirection,
+            WindSpeed=currentData.WindSpeed,
+            WindGust=currentData.WindGust,
+            Humidity=currentData.Humidity,
+            CurrentTemp=currentData.CurrentTemp,
+            FeelsLike=currentData.FeelsLike,
+            HeatIndex=currentData.HeatIndex,
+            DewPoint=currentData.DewPoint,
+            UVIndex=currentData.UVIndex,
+            Pressure=currentData.Pressure,
+            Rain=currentData.Rain,
+            LastUpdate=now,
+            ObservedTimeLocal=currentData.ObservedTimeLocal,
+            ObservedTimeUtc=currentData.ObservedTimeUtc
+            )
+
+        self.HistoryData.Lines.insert(0, entry)
         newHistory = []
         for line in self.HistoryData.Lines:
             timestamp = line.ObservedTimeUtc
             if (DateTimeHelpers.GreaterThanOrEqual(timestamp, cutoff)):
                 newHistory.append(line)
-
+        
+        newHistory.sort(key=lambda x: x.LastUpdate or datetime.min, reverse=True)
         self.HistoryData.Lines = newHistory
         self.WeatherScheduler.UpdateHistoryData(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
 

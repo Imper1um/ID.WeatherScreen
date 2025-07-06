@@ -1,4 +1,5 @@
-﻿import math
+﻿import logging
+import math
 
 from config.SettingsEnums import WindType
 from config.WeatherSettings import WeatherSettings
@@ -80,12 +81,26 @@ class WindIndicatorElement(ElementBase):
         compass = directions[index]
         self.Wrapper.UpdateText(store.WindIndicator.Direction, f"{direction:.0f}° ({compass})")
 
-        pastLines = [line for line in reversed(history.Lines[:-1]) if hasattr(line, "WindDirection")][:config.HistoryArrows]
-        for i, (line, arrowStore) in enumerate(zip(reversed(pastLines), store.WindIndicator.HistoryArrows)):
+        deduped_lines = []
+        last_direction = direction
+        for line in history.Lines[1:]:
+            if not hasattr(line, "WindDirection") or line.WindDirection is None:
+                continue
+            if line.WindDirection != last_direction:
+                deduped_lines.append(line)
+                last_direction = line.WindDirection
+            if len(deduped_lines) >= config.HistoryArrows:
+                break
+
+        historyDirections = []
+
+        for i, (line, arrowStore) in enumerate(zip(deduped_lines, store.WindIndicator.HistoryArrows)):
             pastDirection = line.WindDirection
             angleRad = math.radians(pastDirection - 90)
             fadedX = x + math.cos(angleRad) * radius * 0.95
             fadedY = y + math.sin(angleRad) * radius * 0.95
             self.Wrapper.MoveDouble(arrowStore, x, y, fadedX, fadedY)
+            historyDirections.append(pastDirection)
 
+        logging.debug(F'{historyDirections}')
         return self.ElementRefresh

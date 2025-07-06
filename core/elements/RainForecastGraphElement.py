@@ -134,6 +134,7 @@ class RainForecastGraphElement(ElementBase):
         if (config.SkyGradient.Enable):
             gradientWidth = (barWidth + barSpacing) * 24
             secondsPerPixel = 86400 / gradientWidth
+            er.Delay = int(secondsPerPixel * 1000)
             colorPixels = CalculateMinuteGradients(forecast, sunData, gradientWidth)
             now = datetime.now()
             gradientHeight = 35
