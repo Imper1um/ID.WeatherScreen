@@ -102,5 +102,4 @@ class WindIndicatorElement(ElementBase):
             self.Wrapper.MoveDouble(arrowStore, x, y, fadedX, fadedY)
             historyDirections.append(pastDirection)
 
-        logging.debug(F'{historyDirections}')
         return self.ElementRefresh
