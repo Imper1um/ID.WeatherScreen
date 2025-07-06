@@ -27,4 +27,10 @@ class CurrentData:
     ObservedTimeLocal: Optional[datetime] = None
     Latitude: Optional[float] = None
     Longitude: Optional[float] = None
+    LastBackgroundImageTags: Optional[str] = None
+    LastBackgroundImagePath: Optional[str] = None
+    LastBackgroundImageChange: Optional[datetime] = None
+    CurrentBackgroundImagePath: Optional[str] = None
+    ThisImageTags: Optional[str] = None
+    ImageTagMessage: Optional[str] = None
     

@@ -1,45 +1,69 @@
-﻿import json, logging, os, random
+﻿from dataclasses import fields
+import importlib
+import inspect
+import pkgutil
+import json, logging, os, random
 import exiftool
 
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from dateutil import tz
-from PIL import Image, ImageTk
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import Tk
+
+from core.elements.ElementRefresh import ElementRefresh
+
+from .WeatherScheduler import WeatherScheduler
 
 from config.SettingsEnums import *
 from config.WeatherConfig import WeatherConfig
+from config.WeatherSettings import WeatherSettings
 
-from core.drawing.RainForecastGraph import RainForecastGraph
 from core.drawing.CanvasWrapper import CanvasWrapper
-from core.drawing.HumiditySquare import HumiditySquare
-from core.drawing.RainSquare import RainSquare
-from core.drawing.TemperatureGraph import TemperatureGraph
-from core.drawing.WindIndicator import WindIndicator
+from core.elements.ElementBase import ElementBase
+from core.store import WeatherDisplayStore
 from helpers import DateTimeHelpers, PlatformHelpers
 from helpers.WeatherHelpers import WeatherHelpers
 from services.WeatherService import WeatherService
 
 from data.CurrentData import CurrentData
-from data.ForecastData import ForecastData, MoonPhase 
-from data.HistoryData import HistoryData, HistoryLine
+from data.ForecastData import ForecastData
+from data.HistoryData import HistoryData
 from data.SunData import SunData
 
+def GetAllElements(wrapper: CanvasWrapper, settings: WeatherSettings) -> List[ElementBase]:
+    foundItems: List[ElementBase] = []
+    import core.elements
+    package = core.elements
+    baseClass = ElementBase
+
+    for loader, module_name, is_pkg in pkgutil.iter_modules(package.__path__):
+        full_name = f"{package.__name__}.{module_name}"
+        try:
+            module = importlib.import_module(full_name)
+            for name, obj in inspect.getmembers(module, inspect.isclass):
+                if issubclass(obj, baseClass) and obj is not baseClass and obj.__module__ == full_name:
+                    try:
+                        instance = obj(wrapper, settings)
+                        foundItems.append(instance)
+                        logging.debug(f"Element Found: {full_name}.{name}")
+                    except Exception as e:
+                        logging.warning(f"Failed to instantiate {name}: {e}")
+        except Exception as e:
+            logging.debug(f"Skipping module {full_name}: {e}")
+
+    return foundItems
+
 class WeatherDisplay:
-    def __init__(self, root, weatherService: WeatherService, weatherConfig: WeatherConfig):
+    def __init__(self, root:Tk, weatherService: WeatherService, weatherConfig: WeatherConfig):
         self.Config = weatherConfig
         self.Log = logging.getLogger("WeatherDisplay")
         self.BasePath = weatherConfig._basePath
         self.Log.debug(F"BasePath: {self.BasePath}")
-        self.EmojiFont = "Segoe UI Emoji"
         self.Root = root
         if (PlatformHelpers.IsRaspberryPi()):
-            self.EmojiFont = "Noto Color Emoji"
             self.Root.overrideredirect(True)
             self.Root.attributes('-fullscreen', True)
             self.Root.attributes('-type', "splash")
@@ -51,10 +75,6 @@ class WeatherDisplay:
         self.ForecastData: Optional[ForecastData] = None
         self.HistoryData: Optional[HistoryData] = None
         self.SunData: Optional[SunData] = None
-        self.LastBackgroundImageType = None
-        self.LastBackgroundImageTags = None
-        self.LastBackgroundImageChange = None
-
 
         self.Root.title("Weather Display")
         self.current_labels = {}
@@ -65,14 +85,17 @@ class WeatherDisplay:
         self.CanvasWrapper = CanvasWrapper(canvas, "tk")
 
         self.Begin = datetime.now()
-        self.ThisImageTags = None
-        self.ImageTagMessage = None
 
         self.CheckBackgroundImages()
 
+        self.WeatherDisplayStore = WeatherDisplayStore()
+        self.Elements = GetAllElements(self.CanvasWrapper, self.Config.Weather)
+
+        self.WeatherScheduler = WeatherScheduler(self)
+
     def CheckBackgroundImages(self):
         allBackgroundImages = self.GetAllBackgroundImages()
-        self.Log.info(F"{len(allBackgroundImages)} images found.")
+        self.Log.debug(F"{len(allBackgroundImages)} images found.")
         allStates = ['Sunrise','Sunset','Night','Daylight']
         allConditions = ['Clear','PartlyCloudy','Cloudy','Overcast','Foggy','Lightning','LightRain','MediumRain','HeavyRain','Snow']
 
@@ -85,59 +108,17 @@ class WeatherDisplay:
                 if not MatchingImages:
                     self.Log.warning(F'No image matches tags ["{s}","{c}"]')
 
-    def Render(self, wrapper: CanvasWrapper):
-        now = datetime.now()
-
+    def Initialize(self, wrapper: CanvasWrapper, store: WeatherDisplayStore, elements:list[ElementBase], history:HistoryData, current:CurrentData, forecast:ForecastData, sun:SunData):
         wrapper.Clear()
-        wrapper.BackgroundImage(self.LastBackgroundImagePath)
-        DayOfWeek = now.strftime("%A")
-        wrapper.TextElement(DayOfWeek, self.Config.Weather.DayOfWeek)
-        wrapper.FormattedTextElement(now, self.Config.Weather.FullDate)
-        wrapper.FormattedTextElement(now, self.Config.Weather.Time)
-        uptime = F"Uptime: {DateTimeHelpers.GetReadableTimeBetween(self.Begin)}"
-        wrapper.TextElement(uptime, self.Config.Weather.Uptime)
-        wrapper.FormattedTextElement(self.CurrentData.LastUpdate, self.Config.Weather.LastUpdated)
-        wrapper.FormattedTextElement(self.CurrentData.ObservedTimeLocal, self.Config.Weather.Observed)
-        source = F"Source: {self.CurrentData.Source}"
-        wrapper.TextElement(source, self.Config.Weather.Source)
+        store.Background = wrapper.BackgroundImage(self.CurrentData.LastBackgroundImagePath)
 
-        imageTags = F"Requested Image Tags: {self.LastBackgroundImageTags} // This Image Tags: {self.ThisImageTags}"
-        if (self.ImageTagMessage):
-            imageTags += F" // Image Message: {self.ImageTagMessage}"
+        timers:List[Tuple[ElementBase, ElementRefresh]] = []
 
-        wrapper.TextElement(imageTags, self.Config.Weather.ImageTags)
+        for e in elements:
+            er = e.Initialize(store, forecast, current, history, sun)
+            timers.append((e, er))
 
-        if (self.CurrentData.Source == "Station"):
-            station = F"Station: {self.CurrentData.StationId}"
-            wrapper.TextElement(station, self.Config.Weather.Station)
-
-        try:
-            temp = self.CurrentData.CurrentTemp
-            feelsLikeTemp = self.CurrentData.FeelsLike
-            feelsLike = f"Feels Like: {feelsLikeTemp}°"
-            state = self.CurrentData.State
-            emoji = WeatherHelpers.GetWeatherEmoji(state, now, self.ForecastData, self.SunData)
-            display = f"{temp}°"
-            wrapper.TextElement(display, self.Config.Weather.CurrentTemp)
-            wrapper.TextElement(feelsLike, self.Config.Weather.FeelsLike)
-            wrapper.EmojiElement(emoji["Emoji"], self.Config.Weather.CurrentTempEmoji)
-            wrapper.TextElement(self.ForecastData.Daytime.High, self.Config.Weather.TempHigh)
-            wrapper.TextElement(self.ForecastData.Nighttime.Low, self.Config.Weather.TempLow)
-        except Exception as e:
-            self.Log.warning(f"Failed to render weather info: {e}")
-
-        TemperatureGraph.Draw(wrapper, self.HistoryData, self.ForecastData, self.Config.Weather.TemperatureGraph)
-        HumiditySquare.Draw(wrapper, self.CurrentData, self.Config.Weather.HumiditySquare)
-        RainSquare.Draw(wrapper, self.CurrentData, self.Config.Weather)
-        WindIndicator.Draw(wrapper, self.Config.Weather, self.CurrentData, self.HistoryData)
-        RainForecastGraph.Draw(wrapper, self.ForecastData, self.SunData, self.Config.Weather)
-
-    def RefreshScreen(self):
-        self.CurrentFrame = ttk.LabelFrame(self.Root, text="Weather Test")
-
-        self.Render(self.CanvasWrapper)
-       
-        self.Root.after(1000, self.RefreshScreen)
+        self.WeatherScheduler.UpdateTimers(timers)
 
     def ToLocalNaive(self, iso_string: str) -> datetime:
         utc = datetime.fromisoformat(iso_string)
@@ -185,17 +166,26 @@ class WeatherDisplay:
         now = datetime.now()
         current_tags = self.GetWeatherTags(now)
 
+        if (self.CurrentData.CurrentBackgroundImagePath != self.CurrentData.LastBackgroundImagePath and self.WeatherDisplayStore.Background is not None and self.CanvasWrapper.Canvas.winfo_ismapped()):
+            self.WeatherDisplayStore.Background.ChangeImage(self.CurrentData.LastBackgroundImagePath)
+            self.CurrentData.CurrentBackgroundImagePath = self.CurrentData.LastBackgroundImagePath
+
+
         ShouldChange = False
-        if (self.LastBackgroundImageTags is None or set(current_tags) != set(self.LastBackgroundImageTags)):
+        if (self.CurrentData.LastBackgroundImageTags is None or set(current_tags) != set(self.CurrentData.LastBackgroundImageTags)):
             ShouldChange = True
-        if self.LastBackgroundImageChange is None or now - self.LastBackgroundImageChange >= timedelta(minutes=10):
+        if self.CurrentData.LastBackgroundImageChange is None or now - self.CurrentData.LastBackgroundImageChange >= timedelta(minutes=10):
             ShouldChange = True
 
-        if not ShouldChange:
+        if not ShouldChange and self.CurrentData.LastBackgroundImagePath == self.CurrentData.CurrentBackgroundImagePath:
+            self.Root.after(60 * 1000, self.ChangeBackgroundImage)
+            return
+        elif not ShouldChange:
+            self.Root.after(1000, self.ChangeBackgroundImage)
             return
 
-        self.LastBackgroundImageChange = now
-        self.LastBackgroundImageTags = current_tags
+        self.CurrentData.LastBackgroundImageChange = now
+        self.CurrentData.LastBackgroundImageTags = current_tags
         
         AllImages = self.GetAllBackgroundImages()
         MatchingImages = [
@@ -211,8 +201,19 @@ class WeatherDisplay:
         else:
             SelectedFile = random.choice(MatchingImages)
 
-        self.ThisImageTags = SelectedFile["Tags"]
-        self.LastBackgroundImagePath = SelectedFile["Path"]
+        self.CurrentData.ThisImageTags = SelectedFile["Tags"]
+        self.CurrentData.LastBackgroundImagePath = SelectedFile["Path"]
+
+
+        if (self.WeatherDisplayStore.Background is not None and self.CanvasWrapper.Canvas.winfo_ismapped()):
+            self.WeatherDisplayStore.Background.ChangeImage(self.CurrentData.LastBackgroundImagePath)
+            self.CurrentData.CurrentBackgroundImagePath = self.CurrentData.LastBackgroundImagePath
+            self.WeatherScheduler.UpdateBackground(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
+            self.Root.after(60 * 1000, self.ChangeBackgroundImage)
+        else:
+            self.Root.after(1000, self.ChangeBackgroundImage)
+        
+        
 
     def GetWeatherTags(self, time):
         state = self.CurrentData.State.lower()
@@ -269,12 +270,15 @@ class WeatherDisplay:
 
 
     def StartDataRefresh(self):
+        allElements = GetAllElements(self.CanvasWrapper, self.Config.Weather)
+
         self.GrabHistoricalData();
         self.RefreshCurrentData();
         self.RefreshSunData();
         self.RefreshForecastData();
         self.ChangeBackgroundImage()
-        self.RefreshScreen();
+
+        self.Initialize(self.CanvasWrapper, self.WeatherDisplayStore, allElements, self.HistoryData, self.CurrentData, self.ForecastData, self.SunData)
 
         if (PlatformHelpers.IsRaspberryPi()):
             self.Root.after(2000, self.EnsureFullscreen)
@@ -289,24 +293,9 @@ class WeatherDisplay:
             self.Log.warning(F"Window is not fullscreen... attempting fullscreen push")
             self.Root.attributes("-fullscreen", True)
 
-    def DebugBuckets(self, reason):
-        if (not self.Config.Logging.EnableTrace):
-            return
-
-        hourlyTemps = defaultdict(list)
-        for timestamp, data in self.HistoryData:
-            utcTimestamp = timestamp.astimezone(timezone.utc)
-            if "CurrentTempF" in data:
-                hourBucket = utcTimestamp.replace(minute=0, second=0, microsecond=0)
-                hourlyTemps[hourBucket].append(data["CurrentTempF"])
-        
-        hourBuckets = hourlyTemps.keys()
-        self.Log.debug(F"{reason}: hourBuckets = {hourBuckets} ({len(hourBuckets)})")
-
     def GrabHistoricalData(self):
         historicalData = self.WeatherService.GetHistoryData();
         self.HistoryData = historicalData
-        self.DebugBuckets("GrabHistoricalData");
 
     def RefreshSunData(self):
         now = datetime.now()
@@ -314,6 +303,7 @@ class WeatherDisplay:
 
         tomorrow = (now + timedelta(days = 1)).replace(hour = 0, minute = 0, second = 5, microsecond = 0)
         delay = (tomorrow - now).total_seconds() * 1000
+        self.WeatherScheduler.UpdateSunData(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
         self.Root.after(int(delay), self.RefreshSunData)
 
     def AppendToHistory(self):
@@ -321,9 +311,7 @@ class WeatherDisplay:
         cutoff = now - timedelta(hours=26)
         currentData = self.CurrentData;
 
-        self.DebugBuckets("RefreshStationdata Pre-Append")
         self.HistoryData.Lines.append(currentData)
-        self.DebugBuckets("RefreshStationdata Post-Append")
         newHistory = []
         for line in self.HistoryData.Lines:
             timestamp = line.ObservedTimeUtc
@@ -331,22 +319,25 @@ class WeatherDisplay:
                 newHistory.append(line)
 
         self.HistoryData.Lines = newHistory
-        self.DebugBuckets("RefreshStationdata Post-Filter")
+        self.WeatherScheduler.UpdateHistoryData(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
 
     def RefreshCurrentData(self):
         currentData = self.WeatherService.GetCurrentData()
-        self.CurrentData = currentData;
+        if (self.CurrentData is None):
+            self.CurrentData = currentData;
+        else:
+            for f in fields(currentData):
+                value = getattr(currentData, f.name)
+                if value is not None:
+                    setattr(self.CurrentData, f.name, value)
+            
         self.AppendToHistory()
 
         if (self.Config.Logging.EnableTrace):
             self.Log.debug(F"RefreshCurrentData: {currentData}")
-        if (self.SunData):
-            self.ChangeBackgroundImage()
 
+        self.WeatherScheduler.UpdateCurrentData(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
         self.Root.after(60 * 1000, self.RefreshCurrentData)
-
-    
-
 
     def RefreshForecastData(self):
         self.ForecastData = self.WeatherService.GetForecastData()
@@ -354,5 +345,6 @@ class WeatherDisplay:
             self.Log.debug(F"RefreshForecastData: {self.ForecastData}")
             self.Log.debug("----")
 
+        self.WeatherScheduler.UpdateForecastData(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
         self.Root.after(60 * 60 * 1000, self.RefreshForecastData)
             
