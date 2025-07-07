@@ -8,6 +8,7 @@ from .HumiditySquareSettings import HumiditySquareSettings
 from .RainSquareSettings import RainSquareSettings
 from .RainForecastSettings import RainForecastSettings
 from .SizeElementSettings import SizeElementSettings
+from .TemperatureGraphSettings import TemperatureGraphSettings
 
 @dataclass
 class WeatherSettings:
@@ -23,7 +24,7 @@ class WeatherSettings:
     LastUpdated: FormattedTextElementSettings = field(default_factory=lambda: FormattedTextElementSettings(X=1900,Y=980,FillColor="#777",Anchor="e", Stroke=False, Format="Last Updated: %Y-%m-%d %I:%M:%S %p"))
     Observed: FormattedTextElementSettings = field(default_factory=lambda: FormattedTextElementSettings(X=1900,Y=960,FillColor="#777",Anchor="e", Stroke=False, Format="Observed: %Y-%m-%d %I:%M:%S %p"))
     Source: TextElementSettings = field(default_factory=lambda: TextElementSettings(X=1900,Y=940,FillColor="#777",Anchor="e", Stroke=False))
-    DayOfWeek: TextElementSettings = field(default_factory=lambda: TextElementSettings(X=30,Y=30,FillColor="#FFF",FontSize=40,FontWeight="bold"))
+    DayOfWeek: FormattedTextElementSettings = field(default_factory=lambda: TextElementSettings(X=30,Y=30,FillColor="#FFF",FontSize=40,FontWeight="bold", Format="%A"))
     FullDate: FormattedTextElementSettings = field(default_factory=lambda: FormattedTextElementSettings(X=30,Y=90,FillColor="#FFF",FontSize=40,FontWeight="bold",Format="%B %d, %Y"))
     Time: FormattedTextElementSettings = field(default_factory=lambda: FormattedTextElementSettings(X=400, Y=30,FillColor="#FFF",FontSize=90,FontWeight="bold",Format="%-I:%M %p"))
     Station: TextElementSettings = field(default_factory=lambda: TextElementSettings(X=1900, Y=920, FillColor="#777", Anchor="e", Stroke=False))
@@ -36,4 +37,4 @@ class WeatherSettings:
     HumiditySquare: HumiditySquareSettings = field(default_factory=lambda: HumiditySquareSettings(X=1290, Y=280, Size=100))
     RainSquare: RainSquareSettings = field(default_factory=lambda: RainSquareSettings(X=1400, Y=280, Size=100))
     RainForecast: RainForecastSettings = field(default_factory=lambda: RainForecastSettings(X=30, Y=850))
-    TemperatureGraph: SizeElementSettings = field(default_factory=lambda: SizeElementSettings(X=940, Y=30, Width=360, Height=130))
+    TemperatureGraph: TemperatureGraphSettings = field(default_factory=lambda: TemperatureGraphSettings(X=940, Y=30, Width=360, Height=130))

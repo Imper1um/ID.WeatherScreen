@@ -35,11 +35,7 @@ Then:
 3. Set `autohide=1` in the appropriate section.
 4. Reboot to apply the changes.
 
-### 3. (⚠ Deprecated) Set Up Environment Variables
-
-> ⚠ Environment Variables are no longer supported as how the program is supplied data. See Settings below!
-
-### 4. Install as a Systemd Service (Optional)
+### 3. Install as a Systemd Service (Optional)
 
 To launch the weather screen automatically at boot into a full-screen graphical session:
 
@@ -121,18 +117,13 @@ This automated classification process is optional but highly recommended for lar
 
 ### 4. Fallback Behavior
 
-If no images match the current weather and time requirements, the dashboard will:
-
-- Randomly select any image from `/assets/backgrounds`, regardless of its tags.
-- This is the only scenario where improperly tagged images may be used.
+If no images match the current weather and time requirements, the dashboard will randomly select any image from `/assets/backgrounds`, regardless of its tags. This is the only scenario where improperly tagged images may be used.
 
 ### 5. Recommended Image Size
 
-Images should ideally match the resolution of your display (for example, 1920x1080 for 1080p screens), but non-matching resolutions are still supported.
+Images should ideally match the resolution of your display (for example, 1920x1080 for 1080p screens), but non-matching resolutions are still supported. Images will be resized to fill the screen when they are displayed.
 
 # Settings and Configuration
-
-> ⚠️ Environment Variables are no longer used for configuring this project. Configuration is now handled exclusively via a `.config` file.
 
 ## First Run
 
@@ -141,7 +132,14 @@ On the first run, the system will automatically generate a configuration file na
 weatherscreen.config
 ```
 
-This file is saved in the same directory as the Python scripts. It contains all the necessary configuration for your weather display and must be edited to suit your needs. If the file does not exist, it will be created with default values.
+This file is saved in the same directory as the Python scripts. It contains all the necessary configuration for your weather display and can be edited to suit your needs. If the file does not exist, it will be created with default values.
+
+**Please note:** When you first start the project, it will create the .config properly, but it will be initialized with blank values for API Keys and Location. You *must* fill in the following values in order for the system to operate:
+
+- `Weather.Location`
+- `Weather.WeatherAPI.Key`
+
+Other values are optional, but recommended.
 
 ## Configuration Sections
 
@@ -211,7 +209,10 @@ The following apply to each element type:
 - `FontWeight`: Can be `"normal"` or `"bold"`.
 - `FontSize`: Size of the text in points.
 - `Anchor`: Text anchor (`"center"`, `"e"`, `"ne"`, etc.).
-- `Stroke`: If `True`, applies a 2px stroke outline around the text for better readability.
+- `Stroke`: If `True`, applies a stroke outline around the object/text for better readability.
+- `StrokeColor`: Sets the color of the outline around the object/text.
+- `StrokeWidth`: Sets the size of the outline around the object/text
+- `Justify`: What side of the bounding box should the text align (`left`, `center`, or `right`)
 
 #### Formatted (inherits from Text)
 

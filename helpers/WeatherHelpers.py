@@ -6,7 +6,7 @@ from data.SunData import SunData
 from helpers.DateTimeHelpers import DateTimeHelpers
 
 class WeatherHelpers:
-    def GetWeatherEmoji(state: str, time: datetime, forecast:ForecastData, sunData:SunData) -> str:
+    def GetWeatherEmoji(state: str, time: datetime, forecast:ForecastData, sunData:SunData):
         text = state.lower()
         Moon = forecast.Moon
         IsNight = WeatherHelpers.IsNight(sunData, time)
