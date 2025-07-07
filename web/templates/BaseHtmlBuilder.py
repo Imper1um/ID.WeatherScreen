@@ -106,7 +106,7 @@ class BaseHtmlBuilder:
         if (hour == 0):
             hour = 12
         ampm = time.strftime("%p").lower()
-        timeDisplay = F"{hour}:{time.strftime("%M:%S")} {ampm}"
+        timeDisplay = F'{hour}:{time.strftime("%M:%S")} {ampm}'
         return timeDisplay
 
     def MiddleItem(type: str, title: str, content: str, dataContent: str = "", addon: str = "", classes: str = ""):

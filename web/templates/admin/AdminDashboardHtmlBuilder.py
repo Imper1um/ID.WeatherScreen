@@ -100,7 +100,7 @@ def FutureForecastGrid(weatherDisplay: WeatherDisplay, weatherConfig: WeatherCon
         rainAmounts.append(F'<td class="rain-amount">{rainDisplay}</td>')
         hours.append(F'<td class="rain-hour">{timeLabel}</td>')
         rainBars.append(F'<td class="rain-bar"><div class="rain-baramount" style="height: {barHeight}%"></div></td>')
-        weatherEmojis.append(F'<td class="rain-emoji">{emoji['Emoji']}</td>')
+        weatherEmojis.append(F'<td class="rain-emoji">{emoji["Emoji"]}</td>')
         cloudCoverPercentages.append(F'<td class="rain-cloud">{cloud}%</td>')
 
 
