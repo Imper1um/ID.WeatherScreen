@@ -98,7 +98,9 @@
     <Compile Include="services\WeatherService.py" />
     <Compile Include="services\WeatherUndergroundService.py" />
     <Compile Include="services\__init__.py" />
+    <Compile Include="web\routes\AdminRoutes.py" />
     <Compile Include="web\templates\admin\AdminDashboardHtmlBuilder.py" />
+    <Compile Include="web\templates\admin\AdminDebugHtmlBuilder.py" />
     <Compile Include="web\templates\admin\AdminHtmlBuilder.py" />
     <Compile Include="web\templates\admin\__init__.py" />
     <Compile Include="web\templates\BaseHtmlBuilder.py" />
@@ -123,6 +125,7 @@
     <Folder Include="helpers\" />
     <Folder Include="services\" />
     <Folder Include="web\" />
+    <Folder Include="web\routes\" />
     <Folder Include="web\static\css\" />
     <Folder Include="web\static\" />
     <Folder Include="web\static\js\" />

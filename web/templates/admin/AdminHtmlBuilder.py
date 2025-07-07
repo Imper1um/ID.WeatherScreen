@@ -1,6 +1,8 @@
 ﻿from datetime import datetime
 
 from config.SettingsEnums import TemperatureType
+from helpers.DateTimeHelpers import DateTimeHelpers
+from helpers.WeatherHelpers import WeatherHelpers
 from web.templates.BaseHtmlBuilder import BaseHtmlBuilder
 from core.WeatherDisplay import WeatherDisplay
 from config.WeatherConfig import WeatherConfig
@@ -10,14 +12,14 @@ def MiddleContent(weatherDisplay: WeatherDisplay, weatherConfig: WeatherConfig) 
     weather = weatherDisplay.CurrentData.State
     time = datetime.now()
     timeDisplay = BaseHtmlBuilder.BuildLocalTime(time)
-    timeData = BaseHtmlBuilder.BuildLocalDataTime(time)
-    emoji = weatherDisplay.GetWeatherEmoji(weather, weatherDisplay.CurrentData.ObservedTimeLocal)
+    timeData = DateTimeHelpers.BuildLocalDataTime(time)
+    emoji = WeatherHelpers.GetWeatherEmoji(weather, weatherDisplay.CurrentData.ObservedTimeLocal, weatherDisplay.ForecastData, weatherDisplay.SunData)
 
     hour = weatherDisplay.CurrentData.ObservedTimeLocal
 
     return BaseHtmlBuilder.MiddleContent(F"""
             {BaseHtmlBuilder.MiddleItem("localtime", "Local Time", timeDisplay, dataContent=timeData)}
-            {BaseHtmlBuilder.MiddleItem("uptime", "Uptime", weatherDisplay.GetUptimeString())}
+            {BaseHtmlBuilder.MiddleItem("uptime", "Uptime", DateTimeHelpers.GetReadableTimeBetween(weatherDisplay.Start))}
             {BaseHtmlBuilder.MiddleItem("temp", "Current Temp", F"{weatherDisplay.CurrentData.CurrentTemp:.0f}", tempAddon)}
             {BaseHtmlBuilder.MiddleItem("weather", "Weather", emoji['Emoji'])}
         """, classes="admin-middle-content")

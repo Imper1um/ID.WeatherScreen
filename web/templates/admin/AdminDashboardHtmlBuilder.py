@@ -1,5 +1,6 @@
-﻿import datetime
+﻿from datetime import datetime
 from config.SettingsEnums import PressureType
+from helpers.WeatherHelpers import WeatherHelpers
 from .AdminHtmlBuilder import AdminHtmlBuilder
 from web.templates.components.WindBuilder import WindBuilder
 
@@ -11,7 +12,7 @@ def CurrentConditionsCard(weatherDisplay: WeatherDisplay, weatherConfig: Weather
     tempAddon = "°F" if weatherConfig.Weather.Temperature.name == "F" else "°C"
     rainAddon = '"' if weatherConfig.Weather.Precipitation.name == "IN" else "mm"
     pressureAddon = 'mb' if weatherConfig.Weather.Pressure == PressureType.MB else 'in/hg'
-    emoji = weatherDisplay.GetWeatherEmoji(current.State, current.ObservedTimeLocal.replace(tzinfo=None))
+    emoji = WeatherHelpers.GetWeatherEmoji(current.State, current.ObservedTimeLocal.replace(tzinfo=None), weatherDisplay.ForecastData, weatherDisplay.SunData)
     pressureDisplay = ''
     if (not current.Pressure is None and current.Pressure > 1):
         pressureDisplay = F'{current.Pressure:.1f}</span><span class="data-addon">{pressureAddon}'
@@ -19,11 +20,11 @@ def CurrentConditionsCard(weatherDisplay: WeatherDisplay, weatherConfig: Weather
         pressureDisplay = F'No Pressure Recorded'
 
     sunDisplay = 'Daylight'
-    if (weatherDisplay.IsSunset(datetime.now())):
+    if (WeatherHelpers.IsSunset(weatherDisplay.SunData, datetime.now())):
         sunDisplay = 'Sunset'
-    elif (weatherDisplay.IsSunrise(datetime.now())):
+    elif (WeatherHelpers.IsSunrise(weatherDisplay.SunData, datetime.now())):
         sunDisplay = 'Sunrise'
-    elif (weatherDisplay.IsNight(datetime.now())):
+    elif (WeatherHelpers.IsNight(weatherDisplay.SunData, datetime.now())):
         sunDisplay = 'Night'
 
     secondsAgo = int((datetime.now() - current.LastUpdate).total_seconds())
@@ -94,7 +95,7 @@ def FutureForecastGrid(weatherDisplay: WeatherDisplay, weatherConfig: WeatherCon
         cloud = hour.CloudCoverPercentage
 
         barHeight = int(min(100, rainChance))
-        emoji = weatherDisplay.GetWeatherEmoji(hour.ConditionText, time)
+        emoji = WeatherHelpers.GetWeatherEmoji(hour.ConditionText, time, weatherDisplay.ForecastData, weatherDisplay.SunData)
         rainDisplay = F"{rain:.2f}{rainAddon}" if rain > 0 else ""
 
         rainAmounts.append(F'<td class="rain-amount">{rainDisplay}</td>')
@@ -134,7 +135,7 @@ def FutureForecastGrid(weatherDisplay: WeatherDisplay, weatherConfig: WeatherCon
 class AdminDashboardHtmlBuilder:
     def Page(weatherDisplay: WeatherDisplay, weatherConfig: WeatherConfig):
         return AdminHtmlBuilder.Page("Dashboard",
-                                     F"""
+                                     F'''
                                         <div class="row">
                                             <div class="col-12">
                                                 {CurrentConditionsCard(weatherDisplay, weatherConfig)}
@@ -145,6 +146,6 @@ class AdminDashboardHtmlBuilder:
                                                 {FutureForecastGrid(weatherDisplay, weatherConfig)}
                                             </div>
                                         </div>
-                                      """,
+                                      ''',
                                      weatherDisplay=weatherDisplay,
                                      weatherConfig=weatherConfig)

@@ -3,6 +3,17 @@
 
 class DateTimeHelpers:
     @staticmethod
+    def BuildLocalDataTime(time: datetime) -> str:
+        hour = time.hour
+        minute = time.minute
+        second = time.second
+        ampm = "am" if hour < 12 else "pm"
+
+        hour = hour % 12 or 12
+
+        return f"{hour}:{minute:02}:{second:02}:{ampm}"
+
+    @staticmethod
     def GetReadableTimeBetween(a: datetime, b: datetime = None, separator: str = ' ', dayMoniker: str = 'd', hourMoniker: str = 'h', minuteMoniker: str = 'm', secondMoniker: str = 's', pluralize: str = '') -> str:
         if b is None:
             b = datetime.now()

@@ -92,6 +92,7 @@ class WeatherDisplay:
         self.Elements = GetAllElements(self.CanvasWrapper, self.Config.Weather)
 
         self.WeatherScheduler = WeatherScheduler(self)
+        self.Start = datetime.now()
 
     def CheckBackgroundImages(self):
         allBackgroundImages = self.GetAllBackgroundImages()

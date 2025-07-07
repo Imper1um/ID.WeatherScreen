@@ -179,10 +179,11 @@ class RainForecastGraphElement(ElementBase):
             bar_height = (rain_chance / max_rain) * barMaxHeight
             x = x_start + i * (barWidth + barSpacing)
 
-            self.Wrapper.Rectangle(
+            store.RainForecastGraph.PrecipitationChances.append(self.Wrapper.Rectangle(
                 x, y_start + barMaxHeight - bar_height, x + barWidth, y_start + barMaxHeight,
                 fillColor="blue", outlineColor=""
-            )
+            ))
+            
 
             store.RainForecastGraph.HourLabels.append(self.Wrapper.TextElement(hour_label, config.Hour, xOffset = x + 2 + barWidth // 2, yOffset = y_start - 24))
             store.RainForecastGraph.WeatherEmojis.append(self.Wrapper.EmojiElement(WeatherEmoji["Emoji"], config.Emoji, xOffset=x + 2 + barWidth // 2, yOffset=y_start + 107))

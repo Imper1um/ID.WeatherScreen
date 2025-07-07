@@ -126,6 +126,8 @@ class WeatherUndergroundService:
         dewpoint = self.GetTemperature(imperial.get("dewpt", 32.0))
         heatindex = self.GetTemperature(imperial.get("heatIndex", 32.0))
         pressure = self.GetPressure(imperial.get("pressure", None))
+        if (pressure < 5):
+            pressure = None
         feelslike = self.GetTemperature(imperial.get("windChill", 32.0))
         rain = self.GetPrecipitation(imperial.get("precipTotal", 0.0))
 
@@ -145,7 +147,7 @@ class WeatherUndergroundService:
             UVIndex=obs.get("uv", 0.0),
             Pressure=pressure,
             Rain=rain,
-            LastUpdate=datetime.utcnow(),
+            LastUpdate=datetime.now(),
             ObservedTimeLocal=timestampLocal,
             ObservedTimeUtc=timestampUtc
         )

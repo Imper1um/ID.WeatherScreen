@@ -1,2 +1,3 @@
 ﻿from .AdminDashboardHtmlBuilder import AdminDashboardHtmlBuilder
+from .AdminDebugHtmlBuilder import AdminDebugHtmlBuilder
 from .AdminHtmlBuilder import AdminHtmlBuilder
