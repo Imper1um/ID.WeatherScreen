@@ -37,6 +37,7 @@
     <Compile Include="config\SizeElementSettings.py" />
     <Compile Include="config\SkyGradientSettings.py" />
     <Compile Include="config\SquareElementSettings.py" />
+    <Compile Include="config\TemperatureGraphSettings.py" />
     <Compile Include="config\TextElementSettings.py" />
     <Compile Include="config\WeatherSettings.py" />
     <Compile Include="config\WebConfig.py" />

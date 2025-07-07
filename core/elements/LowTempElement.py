@@ -28,8 +28,8 @@ class LowTempElement(ElementBase):
             return self.Initialize(store, forecast, current, history, sunData)
 
         display = "--°"
-        if (forecast.Daytime.Low is not None):
-            temp = forecast.Daytime.Low
+        if (forecast.Nighttime.Low is not None):
+            temp = forecast.Nighttime.Low
             display = f"{temp:.1f}°"
 
         store.Low.UpdateText(display)

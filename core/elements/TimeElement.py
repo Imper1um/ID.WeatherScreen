@@ -22,5 +22,5 @@ class TimeElement(ElementBase):
             return self.Initialize(store, forecast, current, history, sunData)
 
         now = datetime.now()
-        store.DayOfWeek.UpdateText(DateTimeHelpers.HourSafeToString(now, self.Settings.Time.Format))
+        store.Time.UpdateText(DateTimeHelpers.HourSafeToString(now, self.Settings.Time.Format))
         return ElementRefresh.NextSecond()

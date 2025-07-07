@@ -8,6 +8,7 @@ from .HumiditySquareSettings import HumiditySquareSettings
 from .RainSquareSettings import RainSquareSettings
 from .RainForecastSettings import RainForecastSettings
 from .SizeElementSettings import SizeElementSettings
+from .TemperatureGraphSettings import TemperatureGraphSettings
 
 @dataclass
 class WeatherSettings:
@@ -36,4 +37,4 @@ class WeatherSettings:
     HumiditySquare: HumiditySquareSettings = field(default_factory=lambda: HumiditySquareSettings(X=1290, Y=280, Size=100))
     RainSquare: RainSquareSettings = field(default_factory=lambda: RainSquareSettings(X=1400, Y=280, Size=100))
     RainForecast: RainForecastSettings = field(default_factory=lambda: RainForecastSettings(X=30, Y=850))
-    TemperatureGraph: SizeElementSettings = field(default_factory=lambda: SizeElementSettings(X=940, Y=30, Width=360, Height=130))
+    TemperatureGraph: TemperatureGraphSettings = field(default_factory=lambda: TemperatureGraphSettings(X=940, Y=30, Width=360, Height=130))

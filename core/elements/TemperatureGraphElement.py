@@ -49,9 +49,15 @@ class TemperatureGraphElement(ElementBase):
             i.Delete()
         for i in store.TemperatureGraph.Points:
             i.Delete()
+        for i in store.TemperatureGraph.SmallTemps:
+            i.Delete()
+        for i in store.TemperatureGraph.TimeTemps:
+            i.Delete()
 
         store.TemperatureGraph.ConnectingLines.clear()
         store.TemperatureGraph.Points.clear()
+        store.TemperatureGraph.SmallTemps.clear()
+        store.TemperatureGraph.TimeTemps.clear()
 
         now = datetime.now()
         x = config.X
@@ -87,17 +93,19 @@ class TemperatureGraphElement(ElementBase):
                 yPos = y + height * (1 - norm)
             else:
                 yPos = None
-            coords.append((xPos, yPos))
+            coords.append((xPos, yPos, avgTemp, bucket))
 
         prevValidIndex = None
 
-        for i, (xCur, yCur) in enumerate(coords):
+        for i, (xCur, yCur, norm, bucket) in enumerate(coords):
             if yCur is not None:
                 store.TemperatureGraph.Points.append(self.Wrapper.Oval(xCur - 2, yCur - 2, xCur + 2, yCur + 2, fillColor="white", outlineColor=""))
+                store.TemperatureGraph.SmallTemps.append(self.Wrapper.TextElement(F"{norm:.1f}", self.Settings.TemperatureGraph.SmallText, xCur, yCur+2))
+                bucketDisplay = bucket.strftime("%I").lstrip('0') + bucket.strftime("%p")[0].lower()
+                store.TemperatureGraph.TimeTemps.append(self.Wrapper.TextElement(bucketDisplay, self.Settings.TemperatureGraph.TimeTemps, xCur, yCur+9))
 
                 if prevValidIndex is not None:
-                    xPrev, yPrev = coords[prevValidIndex]
-                    avgTemp = (tempPoints[prevValidIndex] + tempPoints[i]) / 2
+                    xPrev, yPrev, avgTemp, prevBucket = coords[prevValidIndex]
                     color = GetColorForTemp(avgTemp, low, high)
                     store.TemperatureGraph.ConnectingLines.append(self.Wrapper.Line(xPrev, yPrev, xCur, yCur, fillColor=color, width=2, smooth=True))
 
