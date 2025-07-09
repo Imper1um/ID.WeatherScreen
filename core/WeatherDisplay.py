@@ -340,6 +340,7 @@ class WeatherDisplay:
         
         newHistory.sort(key=lambda x: x.LastUpdate or datetime.min, reverse=True)
         self.HistoryData.Lines = newHistory
+        self.Log.debug(F"HistoryData now has {len(self.HistoryData.Lines)}")
         self.WeatherScheduler.UpdateHistoryData(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
 
     def RefreshCurrentData(self):

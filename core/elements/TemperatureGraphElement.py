@@ -1,4 +1,5 @@
 ﻿from collections import defaultdict
+import logging
 from core.store import WeatherDisplayStore
 from . import ElementRefresh, ElementBase
 from .ElementRefresh import *
@@ -19,11 +20,13 @@ def GetColorForTemp(temp, low, high):
 
 class TemperatureGraphElement(ElementBase):
     def __init__(self, wrapper:CanvasWrapper, settings: WeatherSettings):
+        self.Log = logging.getLogger("TemperatureGraphElement")
         self.Wrapper = wrapper
         self.Settings = settings
         er = ElementRefresh(ElementRefresh.OnUpdateHistoryData, ElementRefresh.OnTimer)
         er.Delay = Delay.FromMinutes(5)
         self.ElementRefresh = er
+        
 
     def Initialize(self, store: WeatherDisplayStore, forecast: ForecastData, current: CurrentData, history: HistoryData, sunData: SunData) -> ElementRefresh:
         config = self.Settings.TemperatureGraph
@@ -73,35 +76,49 @@ class TemperatureGraphElement(ElementBase):
         tempRange = max(high - low, 1)
         tempPoints = []
         coords = []
+        maxTimestamp = datetime.min
+        minTimestamp = datetime.max
 
         for line in history.Lines:
-            utcTimestamp = line.ObservedTimeUtc.replace(tzinfo=None)
+            utcTimestamp = line.ObservedTimeLocal.replace(tzinfo=None)
+            if (utcTimestamp > maxTimestamp):
+                maxTimestamp = utcTimestamp
+            if (utcTimestamp < minTimestamp):
+                minTimestamp = utcTimestamp
             hourBucket = utcTimestamp.replace(minute=0,second=0,microsecond=0)
             if minTime <= hourBucket <= now:
                 hourlyTemps[hourBucket].append(line.CurrentTemp)
+
+        self.Log.debug(F'Elements between {minTimestamp.strftime("%d/%m/%Y %H:%M:%S")} and {maxTimestamp.strftime("%d/%m/%Y %H:%M:%S")}')
 
         for i in range(24):
             hour = now - timedelta(hours=23-i)
             bucket = hour.replace(minute=0, second=0, microsecond=0)
             values = hourlyTemps.get(bucket, [])
+            bucketDisplay = bucket.strftime("%I").lstrip('0') + bucket.strftime("%p")[0].lower()
             avgTemp = sum(values) / len(values) if values else None
             tempPoints.append(avgTemp)
 
-            xPos = x + i * (width / 23)
+            xPos = x + i * (width / 24)
             if avgTemp is not None:
                 norm = (avgTemp - low) / tempRange
                 yPos = y + height * (1 - norm)
             else:
                 yPos = None
-            coords.append((xPos, yPos, avgTemp, bucket))
+            coords.append((xPos, yPos, avgTemp, bucketDisplay))
+
+        xPos = x + 24 * (width / 24)
+        norm = (current.CurrentTemp - low) / tempRange
+        yPos = y + height * (1 - norm)
+        bucketDisplay = current.ObservedTimeLocal.strftime("%I").lstrip('0') + current.ObservedTimeLocal.strftime(":%M")
+        coords.append((xPos, yPos, current.CurrentTemp, bucketDisplay))
 
         prevValidIndex = None
 
-        for i, (xCur, yCur, norm, bucket) in enumerate(coords):
+        for i, (xCur, yCur, norm, bucketDisplay) in enumerate(coords):
             if yCur is not None:
                 store.TemperatureGraph.Points.append(self.Wrapper.Oval(xCur - 2, yCur - 2, xCur + 2, yCur + 2, fillColor="white", outlineColor=""))
                 store.TemperatureGraph.SmallTemps.append(self.Wrapper.TextElement(F"{norm:.1f}", self.Settings.TemperatureGraph.SmallText, xCur, yCur+2))
-                bucketDisplay = bucket.strftime("%I").lstrip('0') + bucket.strftime("%p")[0].lower()
                 store.TemperatureGraph.TimeTemps.append(self.Wrapper.TextElement(bucketDisplay, self.Settings.TemperatureGraph.TimeTemps, xCur, yCur+9))
 
                 if prevValidIndex is not None:

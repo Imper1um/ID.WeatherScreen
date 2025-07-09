@@ -25,7 +25,7 @@ class FullDateElement(ElementBase):
             return self.Initialize(store, forecast, current, history, sunData)
 
         now = datetime.now()
-        store.DayOfWeek.UpdateText(DateTimeHelpers.HourSafeToString(now, self.Settings.FullDate.Format))
+        store.FullDate.UpdateText(DateTimeHelpers.HourSafeToString(now, self.Settings.FullDate.Format))
         tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         delta = tomorrow - now
         return ElementRefresh.OnMidnight()
