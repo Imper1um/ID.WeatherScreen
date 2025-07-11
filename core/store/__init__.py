@@ -1,4 +1,5 @@
-﻿from .HumiditySquareStore import HumiditySquareStore
+﻿from .EmojiStore import EmojiStore
+from .HumiditySquareStore import HumiditySquareStore
 from .RainForecastGraphStore import RainForecastGraphStore
 from .RainSquareStore import RainSquareStore
 from .TemperatureGraphStore import TemperatureGraphStore

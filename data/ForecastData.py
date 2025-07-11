@@ -2,38 +2,9 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, List
-
-class MoonPhase(Enum):
-    NewMoon = "New Moon"
-    WaxingCrescent = "Waxing Crescent"
-    FirstQuarter = "First Quarter"
-    WaxingGibbous = "Waxing Gibbous"
-    FullMoon = "Full Moon"
-    WaningGibbous = "Waning Gibbous"
-    LastQuarter = "Last Quarter"
-    WaningCrescent = "Waning Crescent"
-
-    @classmethod
-    def FromString(cls, phase_str: str):
-        for phase in cls:
-            if phase.value.lower() == phase_str.lower():
-                return phase
-        if (phase_str.lower() == "third quarter"):
-            return MoonPhase.LastQuarter
-        raise ValueError(f"Unknown moon phase: {phase_str}")
-
-    @property
-    def ToEmoji(self) -> str:
-        return {
-            MoonPhase.NewMoon: "🌑",
-            MoonPhase.WaxingCrescent: "🌒",
-            MoonPhase.FirstQuarter: "🌓",
-            MoonPhase.WaxingGibbous: "🌔",
-            MoonPhase.FullMoon: "🌕",
-            MoonPhase.WaningGibbous: "🌖",
-            MoonPhase.LastQuarter: "🌗",
-            MoonPhase.WaningCrescent: "🌘",
-        }.get(self, "❓")
+from config.IconType import IconType
+from data.MoonPhase import MoonPhase
+from data.WeatherConditions import WeatherConditions
 
 @dataclass
 class DaytimeData:
@@ -55,10 +26,7 @@ class NighttimeData:
 class HourlyForecast:
     Time: Optional[str] = None
     Temperature: Optional[float] = None
-    CloudCoverPercentage: Optional[float] = None
     WindDirection: Optional[int] = None
-    WindSpeed: Optional[float] = None
-    WindGust: Optional[float] = None
     ConditionText: Optional[str] = None
     UVIndex: Optional[float] = None
     HeatIndex: Optional[float] = None
@@ -66,10 +34,11 @@ class HourlyForecast:
     DewPoint: Optional[float] = None
     Pressure: Optional[float] = None
     Humidity: Optional[float] = None
-    PrecipitationRain: Optional[float] = None
     RainChance: Optional[float] = None
-    PrecipitationSnow: Optional[float] = None
     SnowChance: Optional[float] = None
+
+    Conditions: Optional[WeatherConditions] = field(default_factory=lambda: WeatherConditions())
+
 
 @dataclass
 class RainTimesData:

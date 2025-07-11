@@ -9,6 +9,8 @@ from .RainSquareSettings import RainSquareSettings
 from .RainForecastSettings import RainForecastSettings
 from .SizeElementSettings import SizeElementSettings
 from .TemperatureGraphSettings import TemperatureGraphSettings
+from .StackedEmojiElementSettings import StackedEmojiElementSettings
+from .StackedIconElementSettings import StackedIconElementSettings
 
 @dataclass
 class WeatherSettings:
@@ -28,7 +30,8 @@ class WeatherSettings:
     FullDate: FormattedTextElementSettings = field(default_factory=lambda: FormattedTextElementSettings(X=30,Y=90,FillColor="#FFF",FontSize=40,FontWeight="bold",Format="%B %d, %Y"))
     Time: FormattedTextElementSettings = field(default_factory=lambda: FormattedTextElementSettings(X=400, Y=30,FillColor="#FFF",FontSize=90,FontWeight="bold",Format="%-I:%M %p"))
     Station: TextElementSettings = field(default_factory=lambda: TextElementSettings(X=1900, Y=920, FillColor="#777", Anchor="e", Stroke=False))
-    CurrentTempEmoji: TextElementSettings = field(default_factory=lambda: TextElementSettings(X=1880, Y=30, Anchor="ne", FontSize=72, Stroke=False))
+    CurrentTempEmoji: StackedEmojiElementSettings = field(default_factory=lambda: StackedEmojiElementSettings(Enabled=False, X=1880, Y=80, Anchor="center", FontSize=72, Stroke=False))
+    CurrentTempIcon: StackedIconElementSettings = field(default_factory=lambda: StackedIconElementSettings(X=1780, Y=30, Anchor="center", FontSize=72, Stroke=False, Width=100, Height=100))
     CurrentTemp: TextElementSettings = field(default_factory=lambda: TextElementSettings(X=1750, Y=30, Anchor="ne", FontSize=72, FontWeight="bold"))
     FeelsLike: TextElementSettings = field(default_factory=lambda: TextElementSettings(X=1750, Y=160, Anchor="ne", FillColor="#BBB", FontWeight="bold", FontSize=40))
     TempHigh: TextElementSettings = field(default_factory=lambda: TextElementSettings(X=1500,Y=30,Anchor="ne", FillColor="red", FontWeight="bold", FontSize=46))

@@ -8,6 +8,8 @@ from config.SettingsEnums import *
 
 from data.CurrentData import CurrentData
 from data.HistoryData import HistoryData, HistoryLine
+from data.WeatherConditions import WeatherConditions
+from services.SunriseSunsetService import SunriseSunsetService
 
 def f_to_c(f:float) -> float: return (f - 32) * 5.0 / 9.0 if f is not None else None
 def inhg_to_mb(hg:float) -> float: return hg * 33.8639 if hg is not None else None
@@ -16,11 +18,12 @@ def miles_to_km(mi:int) -> int: return mi * 1.60934 if mi is not None else None
 def in_to_mm(inch:float) -> float: return inch * 25.4 if inch is not None else None
 
 class WeatherUndergroundService:
-    def __init__(self, config: WeatherConfig):
+    def __init__(self, config: WeatherConfig, sunriseSunsetService: SunriseSunsetService):
         self.Log = logging.getLogger("WeatherUndergroundService")
         self.StationUrl = "https://api.weather.com/v2/pws/observations/current"
         self.StationHistoryUrl = "https://api.weather.com/v2/pws/history/all"
         self.Config = config
+        self.SunriseSunsetService = sunriseSunsetService
 
     def GetCurrentData(self) -> CurrentData:
         return self.ParseStationData(self.QueryStationData())
@@ -64,43 +67,52 @@ class WeatherUndergroundService:
             self.Log.debug("----")
 
         history = HistoryData()
-
         if not data or "observations" not in data:
             return history
 
         observations = data["observations"]
         for obs in observations:
             try:
-                timestampLocal = datetime.strptime(obs["obsTimeLocal"], "%Y-%m-%d %H:%M:%S").astimezone()
+                timestampLocal = datetime.strptime(obs["obsTimeLocal"], "%Y-%m-%d %H:%M:%S")
                 timestampUtc = dateutil.parser.isoparse(obs["obsTimeUtc"]).astimezone(timezone.utc)
                 imperial = obs.get("imperial", {})
 
-                wind = self.GetWind(imperial.get("windspeedAvg", 0.0))
-                gust = self.GetWind(imperial.get("windgustAvg", 0.0))
-                temp = self.GetTemperature(imperial.get("tempAvg", 32.0))
-                dewpoint = self.GetTemperature(imperial.get("dewptAvg", 32.0))
-                heatindex = self.GetTemperature(imperial.get("heatindexAvg", 32.0))
-                pressure = self.GetPressure(imperial.get("pressureTrend", None))
-                feelslike = self.GetTemperature(imperial.get("windchillAvg", 32.0))
-                rain = self.GetPrecipitation(imperial.get("precipTotal", 0.0))
+                temp = self.GetTemperature(imperial.get("tempAvg"))
+                feelslike = self.GetTemperature(imperial.get("windchillAvg"))
+                heatindex = self.GetTemperature(imperial.get("heatindexAvg"))
+                dewpoint = self.GetTemperature(imperial.get("dewptAvg"))
+                pressure = self.GetPressure(imperial.get("pressureTrend"))
+                rain = self.GetPrecipitation(imperial.get("precipTotal"))
+                gust = self.GetWind(imperial.get("windgustAvg"))
+                wind = self.GetWind(imperial.get("windspeedAvg"))
+
+                sunData = self.SunriseSunsetService.GetSunData(obs.get("lat"), obs.get("lon"), timestampLocal) if obs.get("lat") and obs.get("lon") else None
+                sunAngle = sunData.GetDegreesAboveHorizon(timestampLocal) if sunData else None
+
+                conditions = WeatherConditions(
+                    time=timestampLocal,
+                    rainRate=rain,
+                    windGust=gust,
+                    windSpeed=wind,
+                    sunAngle=sunAngle,
+                    isFreezing=temp <= 32 if temp is not None else None
+                )
 
                 entry = HistoryLine(
                     Source="Station",
                     StationId=obs.get("stationID"),
                     WindDirection=obs.get("winddirAvg"),
-                    WindSpeed=wind,
-                    WindGust=gust,
                     Humidity=obs.get("humidityAvg"),
                     CurrentTemp=temp,
                     FeelsLike=feelslike,
                     HeatIndex=heatindex,
                     DewPoint=dewpoint,
-                    UVIndex=obs.get("uvHigh", 0.0),
+                    UVIndex=obs.get("uvHigh"),
                     Pressure=pressure,
-                    Rain=rain,
                     LastUpdate=timestampUtc,
                     ObservedTimeLocal=timestampLocal,
-                    ObservedTimeUtc=timestampUtc
+                    ObservedTimeUtc=timestampUtc,
+                    Conditions=conditions
                 )
 
                 history.Lines.append(entry)
@@ -108,10 +120,12 @@ class WeatherUndergroundService:
             except Exception as e:
                 self.Log.warning(f"Failed to parse observation: {e}")
                 continue
+
         return history
 
+
     def ParseStationData(self, data) -> CurrentData:
-        if (not data or "observations" not in data):
+        if not data or "observations" not in data:
             return None
 
         obs = data["observations"][0]
@@ -120,37 +134,48 @@ class WeatherUndergroundService:
         timestampLocal = datetime.strptime(obs["obsTimeLocal"], "%Y-%m-%d %H:%M:%S").astimezone()
         timestampUtc = dateutil.parser.isoparse(obs["obsTimeUtc"]).astimezone(timezone.utc)
 
-        wind = self.GetWind(imperial.get("windSpeed", 0.0))
-        gust = self.GetWind(imperial.get("windGust", 0.0))
-        temp = self.GetTemperature(imperial.get("temp", 32.0))
-        dewpoint = self.GetTemperature(imperial.get("dewpt", 32.0))
-        heatindex = self.GetTemperature(imperial.get("heatIndex", 32.0))
-        pressure = self.GetPressure(imperial.get("pressure", None))
-        if (pressure < 5):
-            pressure = None
-        feelslike = self.GetTemperature(imperial.get("windChill", 32.0))
-        rain = self.GetPrecipitation(imperial.get("precipTotal", 0.0))
+        lat = obs.get("lat")
+        lon = obs.get("lon")
+        sunData = self.SunriseSunsetService.GetSunData(lat, lon, timestampLocal)
+        sunAngle = sunData.GetDegreesAboveHorizon(timestampLocal)
+
+        temp = self.GetTemperature(imperial.get("temp"))
+        feelslike = self.GetTemperature(imperial.get("windChill"))
+        heatindex = self.GetTemperature(imperial.get("heatIndex"))
+        dewpoint = self.GetTemperature(imperial.get("dewpt"))
+        pressure = self.GetPressure(imperial.get("pressure"))
+        rain = self.GetPrecipitation(imperial.get("precipTotal"))
+        gust = self.GetWind(imperial.get("windGust"))
+        wind = self.GetWind(imperial.get("windSpeed"))
+
+        conditions = WeatherConditions(
+            time=timestampLocal,
+            rainRate=rain,
+            windGust=gust,
+            windSpeed=wind,
+            sunAngle=sunAngle,
+            isFreezing=None if temp is None else temp <= 32
+        )
 
         return CurrentData(
             Source="Station",
-            Latitude=obs.get("lat"),
-            Longitude=obs.get("lon"),
+            Latitude=lat,
+            Longitude=lon,
             StationId=obs.get("stationID"),
             WindDirection=obs.get("winddir"),
-            WindSpeed=wind,
-            WindGust=gust,
             Humidity=obs.get("humidity"),
             CurrentTemp=temp,
             FeelsLike=feelslike,
             HeatIndex=heatindex,
             DewPoint=dewpoint,
-            UVIndex=obs.get("uv", 0.0),
+            UVIndex=obs.get("uv"),
             Pressure=pressure,
-            Rain=rain,
             LastUpdate=datetime.now(),
             ObservedTimeLocal=timestampLocal,
-            ObservedTimeUtc=timestampUtc
+            ObservedTimeUtc=timestampUtc,
+            Conditions=conditions
         )
+
 
     def QueryStationData(self):
         if not self.Config.Services.WeatherUnderground.Key or not self.Config.Weather.StationCode:

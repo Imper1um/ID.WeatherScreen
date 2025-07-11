@@ -2,6 +2,7 @@
 import math
 
 from config.SettingsEnums import WindType
+from config.WeatherConfig import WeatherConfig
 from config.WeatherSettings import WeatherSettings
 from .ElementBase import ElementBase
 from .ElementRefresh import ElementRefresh
@@ -12,9 +13,10 @@ from data import *
 import tkinter as tk
 
 class WindIndicatorElement(ElementBase):
-    def __init__(self, wrapper: CanvasWrapper, settings: WeatherSettings):
+    def __init__(self, wrapper: CanvasWrapper, config: WeatherConfig):
         self.Wrapper = wrapper
-        self.Settings = settings
+        self.Config = config
+        self.Settings = config.Weather
 
         er = ElementRefresh(ElementRefresh.OnUpdateCurrentData, ElementRefresh.OnTimer)
         er.Delay = Delay.FromMinutes(2)
@@ -61,8 +63,8 @@ class WindIndicatorElement(ElementBase):
         y = config.Y
         radius = config.Size
 
-        wind = current.WindSpeed or 0
-        gust = current.WindGust or 0
+        wind = current.Conditions.WindSpeed or 0
+        gust = current.Conditions.WindGust or 0
         direction = current.WindDirection or 0
         addon = "MPH" if self.Settings.Wind == WindType.MPH else "KPH"
 

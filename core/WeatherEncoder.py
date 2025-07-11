@@ -23,7 +23,7 @@ class WeatherEncoder:
             return
 
         allStates = ['Sunrise','Sunset','Night','Daylight']
-        allConditions = ['Clear','PartlyCloudy','Cloudy','Overcast','Foggy','Lightning','LightRain','MediumRain','HeavyRain','Snow']
+        allConditions = ['Clear','PartlyCloudy','Cloudy','Overcast','Foggy','Windy','Lightning','LightRain','MediumRain','HeavyRain','Snow','Hail','Extreme']
 
         allStatesItems = ""
         for state in allStates:
@@ -35,12 +35,14 @@ class WeatherEncoder:
         systemTag = "You are a photo tagging assistant. You are going to help define the two attributes that describe the image closest.";
         systemTag += "First, you will decide the timing tag, which MUST be ONLY one of the following:"
         systemTag += allStatesItems
-        systemTag += "Secondly, you will decide the weather type tag, which has the following rules:"
-        systemTag += " 1. If an image has Lightning, always pick 'Lightning'"
-        systemTag += " 2. If an image has Fog but no Rain or Lightning, always pick 'Foggy'"
-        systemTag += " 3. If an image has Rain, pick the one that is the most likely; if there's almost no visibility or its mostly dark, pick 'HeavyRain'. If there's a lot of visibility and light, pick 'LightRain.' If its somewhere in the middle, pick 'MediumRain.'"
-        systemTag += " 4. You MUST ONLY pick ONE item from the following list."
-        systemTag += " 5. You will be provided the file name of the image which can help determine the Timing and Weather Type. If it has a Weather Type in the file name, use that Weather Type instead (so if a File has 'Foggy' in the file name, use 'Foggy')"
+        systemTag += "Secondly, you will decide the weather type tag, which has the following rules (rules listed first are higher priority):"
+        systemTag += " 1. If an image looks like extreme weather (like high wind, trees blown over or bending a lot, or damaged buildings), always pick 'Extreme'"
+        systemTag += " 2. If an image has Hail, always pick 'Hail'"
+        systemTag += " 3. If an image has Lightning, always pick 'Lightning'"
+        systemTag += " 4. If an image has Fog but no Rain or Lightning, always pick 'Foggy'"
+        systemTag += " 5. If an image has Rain, pick the one that is the most likely; if there's almost no visibility or its mostly dark, pick 'HeavyRain'. If there's a lot of visibility and light, pick 'LightRain.' If its somewhere in the middle, pick 'MediumRain.'"
+        systemTag += " 6. You MUST ONLY pick ONE item from the following list."
+        systemTag += " 7. You will be provided the file name of the image which can help determine the Timing and Weather Type. If it has a Weather Type in the file name, use that Weather Type instead (so if a File has 'Foggy' in the file name, use 'Foggy')"
         systemTag += allConditionsItems
         systemTag += "Your output must be only in the format: <Timing>,<WeatherType> (For example, 'Daylight,Clear') Do not provide any additional output, or justification."
         client = self.GetClient()

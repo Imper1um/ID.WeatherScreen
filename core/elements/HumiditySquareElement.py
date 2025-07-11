@@ -1,15 +1,16 @@
 ﻿from .ElementBase import ElementBase
 from .ElementRefresh import ElementRefresh
 from core.drawing import CanvasWrapper
-from config import WeatherSettings
+from config import WeatherConfig, WeatherSettings
 from helpers import Delay
 from data import *
 from core.store.WeatherDisplayStore import WeatherDisplayStore
 
 class HumiditySquareElement(ElementBase):
-    def __init__(self, wrapper:CanvasWrapper, settings: WeatherSettings):
+    def __init__(self, wrapper:CanvasWrapper, config: WeatherConfig):
         self.Wrapper = wrapper
-        self.Settings = settings
+        self.Config = config
+        self.Settings = config.Weather
         er = ElementRefresh(ElementRefresh.OnUpdateCurrentData, ElementRefresh.OnTimer)
         er.Delay = Delay.FromMinutes(5)
         self.ElementRefresh = er

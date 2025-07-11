@@ -3,6 +3,12 @@
 from PIL import Image, ImageTk
 from config import FormattedTextElementSettings, TextElementSettings
 from config.SquareElementSettings import SquareElementSettings
+from config.StackedEmojiElementSettings import StackedEmojiElementSettings
+from config.StackedIconElementSettings import StackedIconElementSettings
+from core.drawing.CachedImage import CachedImage
+from core.store.EmojiStore import EmojiStore
+from data.EmojiDisplay import EmojiDisplay
+from data.IconDisplay import IconDisplay
 from .ElementStore import ElementStore
 from helpers import DateTimeHelpers
 from helpers import PlatformHelpers
@@ -13,7 +19,8 @@ class CanvasWrapper:
         self.CanvasType = canvasType
         self.EmojiFont = "Noto Color Emoji" if PlatformHelpers.IsRaspberryPi() else "Segoe UI Emoji"
 
-        self.CachedImages: dict[str, ImageTk.PhotoImage] = {}
+        self.CachedBackgroundImages: dict[str, ImageTk.PhotoImage] = {}
+        self.CachedImages: list[CachedImage] = []
         self.CurrentElements: list[ElementStore] = []
 
     def FormattedTextElement(self, date: datetime, settings: FormattedTextElementSettings, xOffset: int = 0, yOffset: int = 0) -> ElementStore:
@@ -74,7 +81,7 @@ class CanvasWrapper:
         anchor = "nw"
         if (settings.Anchor):
             anchor = settings.Anchor
-        stroke = False
+        stroke = True
         strokeColor = "#000"
         strokeWidth = 2
         if (settings.Stroke is not None):
@@ -166,8 +173,8 @@ class CanvasWrapper:
     def BackgroundImage(self, path: str) -> ElementStore:
         es = ElementStore(self)
         if (self.CanvasType == "tk"):
-            if path in self.CachedImages:
-                es.AddPrimaryElement(self.Canvas.create_image(0, 0, image=self.CachedImages[path], anchor="nw"))
+            if path in self.CachedBackgroundImages:
+                es.AddPrimaryElement(self.Canvas.create_image(0, 0, image=self.CachedBackgroundImages[path], anchor="nw"))
                 self.CurrentElements.append(es)
                 return es
             imgtk = None
@@ -175,25 +182,71 @@ class CanvasWrapper:
                 img = Image.open(path)
                 img = img.resize((self.Canvas.winfo_width(), self.Canvas.winfo_height()), Image.Resampling.LANCZOS)
                 imgtk = ImageTk.PhotoImage(img)
-                self.CachedImages[path] = imgtk
+                self.CachedBackgroundImages[path] = imgtk
 
             es.AddPrimaryElement(self.Canvas.create_image(0, 0, image=imgtk, anchor="nw"))
 
         self.CurrentElements.append(es)
         return es
 
-    def ChangeImage(self, es:ElementStore, path:str):
+    def Image(self, path: str, x: int, y:int, width:int, height:int) -> ElementStore:
+        es = ElementStore(self)
+        if (self.CanvasType == "tk"):
+            cachedImage = next(
+                    (img for img in self.CachedImages
+                        if img.Path == path
+                        and img.Width == width
+                        and img.Height == height), None
+                )
+
+            if cachedImage:
+                es.AddPrimaryElement(self.Canvas.create_image(x, y, image=cachedImage.Image, anchor="nw"))
+
+            imgtk = None
+            img = Image.open(path)
+            img = img.resize((width, height), Image.Resampling.LANCZOS)
+            imgtk = ImageTk.PhotoImage(img)
+            self.CachedImages.append(CachedImage(path, imgtk, width, height))
+
+            es.AddPrimaryElement(self.Canvas.create_image(x, y, image=imgtk, anchor="nw"))
+
+        self.CurrentElements.append(es)
+        return es
+
+    def ChangeBackgroundImage(self, es:ElementStore, path:str):
         if (es.IsDeleted):
             return
 
         if (self.CanvasType == "tk"):
-            if path in self.CachedImages:
-                self.Canvas.itemconfig(es.PrimaryElement, image=self.CachedImages[path])
+            if path in self.CachedBackgroundImages:
+                self.Canvas.itemconfig(es.PrimaryElement, image=self.CachedBackgroundImages[path])
             elif self.Canvas.winfo_ismapped():
                 img = Image.open(path)
                 img = img.resize((self.Canvas.winfo_width(), self.Canvas.winfo_height()), Image.Resampling.LANCZOS)
                 imgtk = ImageTk.PhotoImage(img)
-                self.CachedImages[path] = imgtk
+                self.CachedBackgroundImages[path] = imgtk
+                self.Canvas.itemconfig(es.PrimaryElement, image=imgtk)
+
+    def ChangeImage(self, es:ElementStore, path:str, width: int, height: int):
+        if (es.IsDeleted):
+            return
+
+        if (self.CanvasType == "tk"):
+            cachedImage = next(
+                    (img for img in self.CachedImages
+                        if img.Path == path
+                        and img.Width == width
+                        and img.Height == height), None
+                )
+
+            if cachedImage:
+                self.Canvas.itemconfig(es.PrimaryElement, image=cachedImage.Image)
+
+            else:
+                img = Image.open(path)
+                img = img.resize((width, height), Image.Resampling.LANCZOS)
+                imgtk = ImageTk.PhotoImage(img)
+                self.CachedImages.append(CachedImage(path, imgtk, width, height))
                 self.Canvas.itemconfig(es.PrimaryElement, image=imgtk)
     
     def UpdateText(self, es:ElementStore, text: str):
@@ -243,4 +296,126 @@ class CanvasWrapper:
             for e in self.CurrentElements:
                 e.IsDeleted = True
 
+    def StackedEmojiElement(self, emoji:EmojiDisplay, settings: StackedEmojiElementSettings, xOffset: int = 0, yOffset: int = 0) -> EmojiStore:
+        if (not settings.Enabled):
+            return None
+
+        fontFamily = self.EmojiFont
+        if (settings.FontFamily):
+            fontFamily = settings.FontFamily
+        fontSize = 12
+        if (settings.FontSize):
+            fontSize = settings.FontSize
+        fontWeight = "normal"
+        if (settings.FontWeight):
+            fontWeight = settings.FontWeight
+        anchor = "center"
+        if (settings.Anchor):
+            anchor = settings.Anchor
+        stroke = False
+        strokeColor = "#000"
+        strokeWidth = 2
+        if (settings.Stroke is not None):
+            stroke = settings.Stroke
+        if (settings.StrokeColor):
+            strokeColor = settings.StrokeColor
+        if (settings.StrokeWidth):
+            strokeWidth = settings.StrokeWidth
+        fillColor = "#FFF"
+        if (settings.FillColor):
+            fillColor = settings.FillColor
+        justify = "left"
+        if (settings.Justify):
+            justify = settings.Justify
+
+        def CreateAdjustedEmoji(el:TextElementSettings, layerText:str, fontSizeOffset:int):
+            adjFontFamily = el.FontFamily if el.FontFamily is not None else fontFamily
+            adjFontSize = fontSize + fontSizeOffset + el.FontSize
+            adjFontWeight = el.FontWeight if el.FontWeight is not None else fontWeight
+            adjAnchor = el.Anchor if el.Anchor is not None else anchor
+            adjStroke = el.Stroke if el.Stroke is not None else stroke
+            adjStrokeColor = el.StrokeColor if el.StrokeColor is not None else strokeColor
+            adjStrokeWidth = el.StrokeWidth if el.StrokeWidth is not None else strokeWidth
+            adjFillColor = el.FillColor if el.FillColor is not None else fillColor
+            adjJustify = el.Justify if el.Justify is not None else justify
+            adjX = settings.X + xOffset + el.X
+            adjY = settings.Y + yOffset + el.Y
+
+            return self.Text(layerText, adjX, adjY, adjFontFamily, adjFontSize, adjFontWeight, adjAnchor, adjFillColor, adjStroke, adjStrokeWidth, adjStrokeColor, adjJustify)
+
+        return EmojiStore(
+            back=CreateAdjustedEmoji(settings.Back, emoji.Back, 0),
+            middle=CreateAdjustedEmoji(settings.Middle, emoji.Middle, -2),
+            front=CreateAdjustedEmoji(settings.Front, emoji.Front, -4)
+            )
+
+    def StackedIconElement(self, path:str, icon:IconDisplay, settings: StackedIconElementSettings, xOffset: int = 0, yOffset: int = 0) -> EmojiStore:
+        if (not settings.Enabled):
+            return None
+
+        fontFamily = self.EmojiFont
+        if (settings.FontFamily):
+            fontFamily = settings.FontFamily
+        fontSize = 12
+        if (settings.FontSize):
+            fontSize = settings.FontSize
+        fontWeight = "normal"
+        if (settings.FontWeight):
+            fontWeight = settings.FontWeight
+        anchor = "center"
+        if (settings.Anchor):
+            anchor = settings.Anchor
+        stroke = False
+        strokeColor = "#000"
+        strokeWidth = 2
+        if (settings.Stroke is not None):
+            stroke = settings.Stroke
+        if (settings.StrokeColor):
+            strokeColor = settings.StrokeColor
+        if (settings.StrokeWidth):
+            strokeWidth = settings.StrokeWidth
+        fillColor = "#FFF"
+        if (settings.FillColor):
+            fillColor = settings.FillColor
+        justify = "left"
+        if (settings.Justify):
+            justify = settings.Justify
+
+        xPos = settings.X + xOffset
+        yPos = settings.Y + yOffset
+        textPosX = xPos
+        textPosY = yPos
+        width = settings.Width
+        height = settings.Height
+        if (anchor == "n" or anchor == "center" or anchor == "s"):
+            textPosX += int(settings.Width / 2)
+        if (anchor == "w" or anchor == "center" or anchor == "e"):
+            textPosY += int(settings.Height / 2)
+        if (anchor == "ne" or anchor == "e" or anchor == "se"):
+            textPosX += settings.Width
+        if (anchor == "sw" or anchor == "s" or anchor == "sw"):
+            textPosY += settings.Height
+
+        iconImg = self.Image(path, xPos, yPos, width, height)
+
+        def CreateAdjustedEmoji(el:TextElementSettings, layerText:str, fontSizeOffset:int):
+            adjFontFamily = el.FontFamily if el.FontFamily is not None else fontFamily
+            adjFontSize = fontSize + fontSizeOffset + el.FontSize
+            adjFontWeight = el.FontWeight if el.FontWeight is not None else fontWeight
+            adjAnchor = el.Anchor if el.Anchor is not None else anchor
+            adjStroke = el.Stroke if el.Stroke is not None else stroke
+            adjStrokeColor = el.StrokeColor if el.StrokeColor is not None else strokeColor
+            adjStrokeWidth = el.StrokeWidth if el.StrokeWidth is not None else strokeWidth
+            adjFillColor = el.FillColor if el.FillColor is not None else fillColor
+            adjJustify = el.Justify if el.Justify is not None else justify
+            adjX = textPosX + el.X
+            adjY = textPosY + el.Y
+
+            return self.Text(layerText, adjX, adjY, adjFontFamily, adjFontSize, adjFontWeight, adjAnchor, adjFillColor, adjStroke, adjStrokeWidth, adjStrokeColor, adjJustify)
+
+        return EmojiStore(
+            back=iconImg,
+            middle=CreateAdjustedEmoji(settings.Middle, icon.Middle, -2),
+            front=CreateAdjustedEmoji(settings.Front, icon.Front, -4)
+            )
 

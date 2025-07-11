@@ -18,10 +18,9 @@ class WeatherService:
     def __init__(self, config: WeatherConfig):
         self.Log = logging.getLogger("WeatherService")
         self.Config = config
-        self.WeatherAPIService = WeatherAPIService(config)
-        self.WeatherUndergroundService = WeatherUndergroundService(config)
         self.SunriseSunsetService = SunriseSunsetService(config)
-        
+        self.WeatherAPIService = WeatherAPIService(config, self.SunriseSunsetService)
+        self.WeatherUndergroundService = WeatherUndergroundService(config, self.SunriseSunsetService)
 
     def GetCurrentData(self) -> CurrentData:
         selections = self.Config.Services.Selections.Current
