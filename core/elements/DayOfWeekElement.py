@@ -1,4 +1,5 @@
 ﻿from datetime import datetime, timedelta
+from config.WeatherConfig import WeatherConfig
 from config.WeatherSettings import WeatherSettings
 from core.drawing.CanvasWrapper import CanvasWrapper
 from core.elements.ElementRefresh import ElementRefresh
@@ -8,9 +9,10 @@ from helpers.DateTimeHelpers import DateTimeHelpers
 from .ElementBase import ElementBase
 
 class DayOfWeekElement(ElementBase):
-    def __init__(self, wrapper:CanvasWrapper, settings: WeatherSettings):
+    def __init__(self, wrapper:CanvasWrapper, config: WeatherConfig):
         self.Wrapper = wrapper
-        self.Settings = settings
+        self.Config = config
+        self.Settings = config.Weather
 
     def Initialize(self, store: WeatherDisplayStore, forecast: ForecastData, current: CurrentData, history: HistoryData, sunData: SunData) -> ElementRefresh:
         now = datetime.now()

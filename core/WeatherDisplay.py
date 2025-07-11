@@ -1,4 +1,5 @@
-﻿from dataclasses import fields
+﻿import copy
+from dataclasses import fields
 import importlib
 import inspect
 import pkgutil
@@ -33,7 +34,7 @@ from data.ForecastData import ForecastData
 from data.HistoryData import HistoryData, HistoryLine
 from data.SunData import SunData
 
-def GetAllElements(wrapper: CanvasWrapper, settings: WeatherSettings) -> List[ElementBase]:
+def GetAllElements(wrapper: CanvasWrapper, config: WeatherConfig) -> List[ElementBase]:
     foundItems: List[ElementBase] = []
     import core.elements
     package = core.elements
@@ -46,7 +47,7 @@ def GetAllElements(wrapper: CanvasWrapper, settings: WeatherSettings) -> List[El
             for name, obj in inspect.getmembers(module, inspect.isclass):
                 if issubclass(obj, baseClass) and obj is not baseClass and obj.__module__ == full_name:
                     try:
-                        instance = obj(wrapper, settings)
+                        instance = obj(wrapper, config)
                         foundItems.append(instance)
                         logging.debug(f"Element Found: {full_name}.{name}")
                     except Exception as e:
@@ -89,7 +90,7 @@ class WeatherDisplay:
         self.CheckBackgroundImages()
 
         self.WeatherDisplayStore = WeatherDisplayStore()
-        self.Elements = GetAllElements(self.CanvasWrapper, self.Config.Weather)
+        self.Elements = GetAllElements(self.CanvasWrapper, self.Config)
 
         self.WeatherScheduler = WeatherScheduler(self)
         self.Start = datetime.now()
@@ -128,7 +129,8 @@ class WeatherDisplay:
 
     def GetAllBackgroundImages(self):
         image_dir = os.path.join(self.BasePath, "assets", "backgrounds")
-        self.Log.debug(F"image_dir: {image_dir}")
+        if (self.Config.Logging.EnableDebug):
+            self.Log.debug(F"image_dir: {image_dir}")
         if not os.path.exists(image_dir):
             self.Log.warning(f"Background directory does not exist: {image_dir}")
             return []
@@ -165,12 +167,11 @@ class WeatherDisplay:
 
     def ChangeBackgroundImage(self):
         now = datetime.now()
-        current_tags = self.GetWeatherTags(now)
+        current_tags = [self.CurrentData.Conditions.GetTimingTag(), self.CurrentData.Conditions.GetWeatherTag()]
 
         if (self.CurrentData.CurrentBackgroundImagePath != self.CurrentData.LastBackgroundImagePath and self.WeatherDisplayStore.Background is not None and self.CanvasWrapper.Canvas.winfo_ismapped()):
-            self.WeatherDisplayStore.Background.ChangeImage(self.CurrentData.LastBackgroundImagePath)
+            self.WeatherDisplayStore.Background.ChangeBackgroundImage(self.CurrentData.LastBackgroundImagePath)
             self.CurrentData.CurrentBackgroundImagePath = self.CurrentData.LastBackgroundImagePath
-
 
         ShouldChange = False
         if (self.CurrentData.LastBackgroundImageTags is None or set(current_tags) != set(self.CurrentData.LastBackgroundImageTags)):
@@ -207,79 +208,21 @@ class WeatherDisplay:
 
 
         if (self.WeatherDisplayStore.Background is not None and self.CanvasWrapper.Canvas.winfo_ismapped()):
-            self.WeatherDisplayStore.Background.ChangeImage(self.CurrentData.LastBackgroundImagePath)
+            self.WeatherDisplayStore.Background.ChangeBackgroundImage(self.CurrentData.LastBackgroundImagePath)
             self.CurrentData.CurrentBackgroundImagePath = self.CurrentData.LastBackgroundImagePath
             self.WeatherScheduler.UpdateBackground(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
             self.Root.after(60 * 1000, self.ChangeBackgroundImage)
         else:
             self.Root.after(1000, self.ChangeBackgroundImage)
-        
-        
-
-    def GetWeatherTags(self, time):
-        state = self.CurrentData.State.lower()
-        tags = []
-
-        if WeatherHelpers.IsSunrise(self.SunData, time):
-            tags.append("Sunrise")
-        elif WeatherHelpers.IsSunset(self.SunData, time):
-            tags.append("Sunset")
-        elif WeatherHelpers.IsNight(self.SunData, time):
-            tags.append("Night")
-        else:
-            tags.append("Daylight")
-
-        condition_map = {
-            "sunny": "Clear",
-            "clear": "Clear",
-            "partly cloudy": "PartlyCloudy",
-            "cloudy": "Cloudy",
-            "overcast": "Overcast",
-            "mist": "Foggy",
-            "fog": "Foggy",
-            "freezing fog": "Foggy",
-            "thundery": "Lightning",
-            "thunder": "Lightning",
-            "light drizzle": "LightRain",
-            "patchy light drizzle": "LightRain",
-            "patchy rain": "LightRain",
-            "patchy light rain": "LightRain",
-            "light rain": "LightRain",
-            "moderate rain": "MediumRain",
-            "moderate rain at times": "MediumRain",
-            "heavy rain": "HeavyRain",
-            "heavy rain at times": "HeavyRain",
-            "torrential rain": "HeavyRain",
-            "blizzard": "Snow",
-            "snow": "Snow",
-            "patchy snow": "Snow",
-            "ice": "Snow",
-            "hail": "Snow",
-            "sleet": "Snow",
-            "freezing drizzle": "LightRain",
-            "freezing rain": "MediumRain",
-        }
-
-        for key, tag in condition_map.items():
-            if key in state:
-                tags.append(tag)
-                break
-        else:
-            tags.append("Unknown")
-
-        return tags
-
 
     def StartDataRefresh(self):
-        allElements = GetAllElements(self.CanvasWrapper, self.Config.Weather)
-
         self.GrabHistoricalData();
         self.RefreshCurrentData();
         self.RefreshSunData();
         self.RefreshForecastData();
         self.ChangeBackgroundImage()
 
-        self.Initialize(self.CanvasWrapper, self.WeatherDisplayStore, allElements, self.HistoryData, self.CurrentData, self.ForecastData, self.SunData)
+        self.Initialize(self.CanvasWrapper, self.WeatherDisplayStore, self.Elements, self.HistoryData, self.CurrentData, self.ForecastData, self.SunData)
 
         if (PlatformHelpers.IsRaspberryPi()):
             self.Root.after(2000, self.EnsureFullscreen)
@@ -316,8 +259,6 @@ class WeatherDisplay:
             Source=currentData.Source,
             StationId=currentData.StationId,
             WindDirection=currentData.WindDirection,
-            WindSpeed=currentData.WindSpeed,
-            WindGust=currentData.WindGust,
             Humidity=currentData.Humidity,
             CurrentTemp=currentData.CurrentTemp,
             FeelsLike=currentData.FeelsLike,
@@ -325,10 +266,10 @@ class WeatherDisplay:
             DewPoint=currentData.DewPoint,
             UVIndex=currentData.UVIndex,
             Pressure=currentData.Pressure,
-            Rain=currentData.Rain,
             LastUpdate=now,
             ObservedTimeLocal=currentData.ObservedTimeLocal,
-            ObservedTimeUtc=currentData.ObservedTimeUtc
+            ObservedTimeUtc=currentData.ObservedTimeUtc,
+            Conditions=copy.copy(currentData.Conditions)
             )
 
         self.HistoryData.Lines.insert(0, entry)
@@ -340,7 +281,8 @@ class WeatherDisplay:
         
         newHistory.sort(key=lambda x: x.LastUpdate or datetime.min, reverse=True)
         self.HistoryData.Lines = newHistory
-        self.Log.debug(F"HistoryData now has {len(self.HistoryData.Lines)}")
+        if (self.Config.Logging.EnableTrace):
+            self.Log.debug(F"HistoryData now has {len(self.HistoryData.Lines)}")
         self.WeatherScheduler.UpdateHistoryData(self.WeatherDisplayStore, self.ForecastData, self.CurrentData, self.HistoryData, self.SunData)
 
     def RefreshCurrentData(self):
@@ -349,9 +291,14 @@ class WeatherDisplay:
             self.CurrentData = currentData;
         else:
             for f in fields(currentData):
-                value = getattr(currentData, f.name)
-                if value is not None:
-                    setattr(self.CurrentData, f.name, value)
+                if (f.name == "Conditions"):
+                    for name, cvalue in vars(currentData.Conditions).items():
+                        if cvalue is not None:
+                            setattr(self.CurrentData.Conditions, name, cvalue)
+                else:
+                    value = getattr(currentData, f.name)
+                    if value is not None:
+                        setattr(self.CurrentData, f.name, value)
             
         self.AppendToHistory()
 

@@ -1,5 +1,6 @@
 ﻿from typing import Optional
 from core.drawing.ElementStore import ElementStore
+from core.store.EmojiStore import EmojiStore
 from .HumiditySquareStore import HumiditySquareStore
 from .RainForecastGraphStore import RainForecastGraphStore
 from .RainSquareStore import RainSquareStore
@@ -21,7 +22,8 @@ class WeatherDisplayStore:
         self.Station: Optional[ElementStore] = None
         self.CurrentTemp: Optional[ElementStore] = None
         self.FeelsLike: Optional[ElementStore] = None
-        self.WeatherEmoji: Optional[ElementStore] = None
+        self.WeatherEmoji: Optional[EmojiStore] = None
+        self.WeatherIcon: Optional[EmojiStore] = None
         self.High: Optional[ElementStore] = None
         self.Low: Optional[ElementStore] = None
 

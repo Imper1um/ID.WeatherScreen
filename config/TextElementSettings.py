@@ -10,7 +10,7 @@ class TextElementSettings(ElementSettings):
     FontWeight: Optional[str] = None
     FontSize: Optional[int] = None
     Anchor: Optional[str] = None
-    Stroke: bool = True
+    Stroke: Optional[bool] = None
     StrokeColor: Optional[str] = None
     StrokeWidth: Optional[int] = None
     Justify: Optional[str] = None

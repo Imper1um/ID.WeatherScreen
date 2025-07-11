@@ -1,6 +1,9 @@
 ﻿from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
+
+from config.IconType import IconType
+from data.WeatherConditions import WeatherConditions
 
 
 @dataclass
@@ -8,20 +11,13 @@ class CurrentData:
     Source: Optional[str] = None
     StationId: Optional[str] = None
     WindDirection: Optional[int] = None
-    WindSpeed: Optional[float] = None
-    WindGust: Optional[float] = None
     Humidity: Optional[float] = None
     CurrentTemp: Optional[float] = None
     FeelsLike: Optional[float] = None
     HeatIndex: Optional[float] = None
     DewPoint: Optional[float] = None
     UVIndex: Optional[float] = None
-    State: Optional[str] = None
     Pressure: Optional[float] = None
-    Rain: Optional[float] = None
-    Snow: Optional[float] = None
-    CloudCover: Optional[int] = None
-    Visibility: Optional[float] = None
     LastUpdate: Optional[datetime] = None
     ObservedTimeUtc: Optional[datetime] = None
     ObservedTimeLocal: Optional[datetime] = None
@@ -33,4 +29,6 @@ class CurrentData:
     CurrentBackgroundImagePath: Optional[str] = None
     ThisImageTags: Optional[str] = None
     ImageTagMessage: Optional[str] = None
+    
+    Conditions: Optional[WeatherConditions] = None
     

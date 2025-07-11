@@ -1,4 +1,5 @@
 ﻿from config.SettingsEnums import PrecipitationType
+from config.WeatherConfig import WeatherConfig
 from .ElementBase import ElementBase
 from .ElementRefresh import ElementRefresh
 from core.store import WeatherDisplayStore
@@ -9,9 +10,10 @@ from helpers.Delay import Delay
 from data import *
 
 class RainSquareElement(ElementBase):
-    def __init__(self, wrapper:CanvasWrapper, settings: WeatherSettings):
+    def __init__(self, wrapper:CanvasWrapper, config: WeatherConfig):
         self.Wrapper = wrapper
-        self.Settings = settings
+        self.Config = config
+        self.Settings = config.Weather
         er = ElementRefresh(ElementRefresh.OnUpdateCurrentData, ElementRefresh.OnTimer)
         er.Delay = Delay.FromMinutes(5)
         self.ElementRefresh = er
@@ -45,7 +47,7 @@ class RainSquareElement(ElementBase):
         x = config.X
         y = config.Y
 
-        rain_inches = current.Rain
+        rain_inches = current.Conditions.RainRate
         max_inches = config.MaxRain
         rain_inches = min(max(rain_inches, 0), max_inches)
         fill_ratio = rain_inches / max_inches
@@ -57,8 +59,8 @@ class RainSquareElement(ElementBase):
 
         store.RainSquare.FillRect.MoveDouble(x, top_fill_y, x + size, y + size)
         label = F"--{rainAddon}"
-        if (current.Rain is not None):
-            label = F"{current.Rain:.2f}{rainAddon}"
+        if (current.Conditions.RainRate is not None):
+            label = F"{current.Conditions.RainRate:.2f}{rainAddon}"
 
         store.RainSquare.Text.UpdateText(label)
 

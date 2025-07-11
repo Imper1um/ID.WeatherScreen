@@ -1,5 +1,6 @@
 ﻿from collections import defaultdict
 import logging
+from config.WeatherConfig import WeatherConfig
 from core.store import WeatherDisplayStore
 from . import ElementRefresh, ElementBase
 from .ElementRefresh import *
@@ -19,10 +20,11 @@ def GetColorForTemp(temp, low, high):
     return f'#{red:02x}{green:02x}{blue:02x}'
 
 class TemperatureGraphElement(ElementBase):
-    def __init__(self, wrapper:CanvasWrapper, settings: WeatherSettings):
+    def __init__(self, wrapper:CanvasWrapper, config: WeatherConfig):
         self.Log = logging.getLogger("TemperatureGraphElement")
         self.Wrapper = wrapper
-        self.Settings = settings
+        self.Config = config
+        self.Settings = config.Weather
         er = ElementRefresh(ElementRefresh.OnUpdateHistoryData, ElementRefresh.OnTimer)
         er.Delay = Delay.FromMinutes(5)
         self.ElementRefresh = er
@@ -118,8 +120,12 @@ class TemperatureGraphElement(ElementBase):
         for i, (xCur, yCur, norm, bucketDisplay) in enumerate(coords):
             if yCur is not None:
                 store.TemperatureGraph.Points.append(self.Wrapper.Oval(xCur - 2, yCur - 2, xCur + 2, yCur + 2, fillColor="white", outlineColor=""))
-                store.TemperatureGraph.SmallTemps.append(self.Wrapper.TextElement(F"{norm:.1f}", self.Settings.TemperatureGraph.SmallText, xCur, yCur+2))
-                store.TemperatureGraph.TimeTemps.append(self.Wrapper.TextElement(bucketDisplay, self.Settings.TemperatureGraph.TimeTemps, xCur, yCur+9))
+                smallTemp = self.Wrapper.TextElement(F"{norm:.1f}", self.Settings.TemperatureGraph.SmallText, xCur, yCur+2)
+                if smallTemp is not None:
+                    store.TemperatureGraph.SmallTemps.append(smallTemp)
+                timeTemp = self.Wrapper.TextElement(bucketDisplay, self.Settings.TemperatureGraph.TimeTemps, xCur, yCur+9)
+                if timeTemp is not None:
+                    store.TemperatureGraph.TimeTemps.append(timeTemp)
 
                 if prevValidIndex is not None:
                     xPrev, yPrev, avgTemp, prevBucket = coords[prevValidIndex]

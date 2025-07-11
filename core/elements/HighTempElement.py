@@ -1,4 +1,5 @@
-﻿from config.WeatherSettings import WeatherSettings
+﻿from config.WeatherConfig import WeatherConfig
+from config.WeatherSettings import WeatherSettings
 from core.drawing.CanvasWrapper import CanvasWrapper
 from core.elements.ElementRefresh import *
 from core.elements.ElementBase import ElementBase
@@ -7,9 +8,10 @@ from helpers import Delay
 from core.store.WeatherDisplayStore import WeatherDisplayStore
 
 class HighTempElement(ElementBase):
-    def __init__(self, wrapper:CanvasWrapper, settings: WeatherSettings):
+    def __init__(self, wrapper:CanvasWrapper, config: WeatherConfig):
         self.Wrapper = wrapper
-        self.Settings = settings
+        self.Config = config
+        self.Settings = config.Weather
         er = ElementRefresh(ElementRefresh.OnUpdateForecastData, ElementRefresh.OnTimer)
         er.Delay = Delay.FromHours(3)
         self.ElementRefresh = er

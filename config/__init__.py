@@ -15,6 +15,7 @@ from .SettingsEnums import (
 from .SizeElementSettings import SizeElementSettings
 from .SkyGradientSettings import SkyGradientSettings
 from .SquareElementSettings import SquareElementSettings
+from .StackedEmojiElementSettings import StackedEmojiElementSettings
 from .TextElementSettings import TextElementSettings
 from .WeatherSettings import WeatherSettings
 from .WebConfig import WebConfig

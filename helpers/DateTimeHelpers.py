@@ -69,6 +69,8 @@ class DateTimeHelpers:
     def HourSafeToString(date: datetime, f:str) -> str:
         f = f.replace("%-I", str(date.strftime("%I").lstrip('0')))
         f = f.replace("%-H", str(date.strftime("%H").lstrip('0')))
+        f = f.replace("%-P", str(date.strftime("%p")[0]))
+        f = f.replace("%-p", str(date.strftime("%p")[0].lower()))
 
         return date.strftime(f)
 

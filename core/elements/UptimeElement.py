@@ -1,4 +1,5 @@
 ﻿from datetime import datetime
+from config.WeatherConfig import WeatherConfig
 from config.WeatherSettings import WeatherSettings
 from core.drawing.CanvasWrapper import CanvasWrapper
 from core.elements import ElementRefresh
@@ -8,9 +9,10 @@ from helpers import DateTimeHelpers
 from core.store.WeatherDisplayStore import WeatherDisplayStore
 
 class UptimeElement(ElementBase):
-    def __init__(self, wrapper:CanvasWrapper, settings: WeatherSettings):
+    def __init__(self, wrapper:CanvasWrapper, config: WeatherConfig):
         self.Wrapper = wrapper
-        self.Settings = settings
+        self.Config = config
+        self.Settings = config.Weather
         self.Start = datetime.now()
 
     def Initialize(self, store: WeatherDisplayStore, forecast: ForecastData, current: CurrentData, history: HistoryData, sunData: SunData) -> int:

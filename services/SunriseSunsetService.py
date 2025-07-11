@@ -12,55 +12,54 @@ class SunriseSunsetService:
         self.Log = logging.getLogger("SunriseSunsetService")
         self.Config = config
         self.AstroTimesUrl = "https://api.sunrise-sunset.org/json"
+        self.DailyCache = {}
 
-    def GetSunData(self, latitude: float, longitude: float, date: datetime):
-        return self.ParseSunData(self.QuerySunData(latitude, longitude, date), self.QuerySunData(latitude, longitude, date + timedelta(days = 1)))
-
-    def ParseSunData(self, today, tomorrow):
-        def to_local_naive(st):
-            return parser.isoparse(st).astimezone().replace(tzinfo=None)
-
-        todayData = today["results"]
-        tomorrowData = tomorrow["results"]
+    def GetSunData(self, latitude: float, longitude: float, date: datetime) -> SunData:
+        yesterday = self.QuerySunData(latitude, longitude, date - timedelta(days=1))
+        today = self.QuerySunData(latitude, longitude, date)
+        tomorrow = self.QuerySunData(latitude, longitude, date + timedelta(days=1))
 
         return SunData(
-            Today=DailySunTimes(
-                Sunrise=SunTimeSet(
-                    AstronomicalTwilight=to_local_naive(todayData["astronomical_twilight_begin"]),
-                    NauticalTwilight=to_local_naive(todayData["nautical_twilight_begin"]),
-                    CivilTwilight=to_local_naive(todayData["civil_twilight_begin"]),
-                    Day=to_local_naive(todayData["sunrise"])
-                ),
-                Sunset=SunsetSet(
-                    Start=to_local_naive(todayData["sunset"]),
-                    CivilTwilight=to_local_naive(todayData["civil_twilight_end"]),
-                    NauticalTwilight=to_local_naive(todayData["nautical_twilight_end"]),
-                    AstronomicalTwilight=to_local_naive(todayData["astronomical_twilight_end"])
-                )
-            ),
-            Tomorrow=DailySunTimes(
-                Sunrise=SunTimeSet(
-                    AstronomicalTwilight=to_local_naive(tomorrowData["astronomical_twilight_begin"]),
-                    NauticalTwilight=to_local_naive(tomorrowData["nautical_twilight_begin"]),
-                    CivilTwilight=to_local_naive(tomorrowData["civil_twilight_begin"]),
-                    Day=to_local_naive(tomorrowData["sunrise"])
-                ),
-                Sunset=SunsetSet(
-                    Start=to_local_naive(tomorrowData["sunset"]),
-                    CivilTwilight=to_local_naive(tomorrowData["civil_twilight_end"]),
-                    NauticalTwilight=to_local_naive(tomorrowData["nautical_twilight_end"]),
-                    AstronomicalTwilight=to_local_naive(tomorrowData["astronomical_twilight_end"])
-                )
-            )
+            today=today,
+            tomorrow=tomorrow,
+            yesterday=yesterday,
+            latitude=latitude
         )
 
-    def QuerySunData(self, latitude: float, longitude: float, date: datetime):
+    def QuerySunData(self, latitude: float, longitude: float, date: datetime) -> DailySunTimes:
+        date_str = date.strftime("%Y%m%d")
+        key = (date_str, round(latitude, 3), round(longitude, 3))
+
+        if key in self.DailyCache:
+            return self.DailyCache[key]
+
+        localTimezone = datetime.now().astimezone().tzinfo
+        tzid = getattr(localTimezone, "key", None) or str(localTimezone)
         params = {
             "lat": latitude,
             "lng": longitude,
-            "date": date.strftime("%Y%m%d"),
-            "formatted": 0
+            "date": date_str,
+            "formatted": 0,
+            "tzid": tzid
         }
         response = requests.get(self.AstroTimesUrl, params=params)
         response.raise_for_status()
-        return response.json()
+        results = response.json()["results"]
+
+        def to_local_naive(st):
+            return parser.isoparse(st).astimezone().replace(tzinfo=None)
+
+        sunTimes = DailySunTimes(
+            Sunrise=to_local_naive(results["sunrise"]),
+            Sunset=to_local_naive(results["sunset"]),
+            SolarNoon=to_local_naive(results["solar_noon"]),
+            CivilTwilightBegin=to_local_naive(results["civil_twilight_begin"]),
+            CivilTwilightEnd=to_local_naive(results["civil_twilight_end"]),
+            NauticalTwilightBegin=to_local_naive(results["nautical_twilight_begin"]),
+            NauticalTwilightEnd=to_local_naive(results["nautical_twilight_end"]),
+            AstronomicalTwilightBegin=to_local_naive(results["astronomical_twilight_begin"]),
+            AstronomicalTwilightEnd=to_local_naive(results["astronomical_twilight_end"]),
+        )
+
+        self.DailyCache[key] = sunTimes
+        return sunTimes
