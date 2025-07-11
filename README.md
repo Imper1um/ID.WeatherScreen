@@ -202,6 +202,25 @@ These options apply to all display options:
 
 The following apply to each element type:
 
+#### Icon
+Icon items are for the Weather Icons. You can use either Icon or Emoji. Both serve the same purpose, except Icons are images that are located in the repo. In front of each Icons are stacked Emojis for additional issues that the Icons cannot cover.
+
+- `Width`: Width (in px) for the icon
+- `Height`: Height (in px) for the icon
+- `Stroke`: If `True`, this will use the high-contrast icons with strokes around major objects that make it easier to see what the element is. Some of the Icons are hard to see, but they are designed to blend into the background to make it more nice to look at.
+
+**Emoji Options:**
+The following elements only apply to the Emojis that would be stacked on top of the Icon (if applicable). If there is no Emoji, it won't be displayed. Emoji Options will use the parent options unless they are set.
+
+- `FillColor`: Hex or named color (e.g. `"#FFF"`, `"red"`).
+- `FontFamily`: Optional font name. Overrides the font for the system.
+- `FontWeight`: Can be `"normal"` or `"bold"`.
+- `FontSize`: Size of the emoji in points.
+- `Anchor`: Text anchor (`"center"`, `"e"`, `"ne"`, etc.) for the Emojis.
+- `StrokeColor`: Sets the color of the outline around the object/text.
+- `StrokeWidth`: Sets the size of the outline around the object/text
+- `Justify`: What side of the bounding box should the text align (`left`, `center`, or `right`)
+
 #### Text
 
 - `FillColor`: Hex or named color (e.g. `"#FFF"`, `"red"`).
@@ -258,14 +277,15 @@ Temp Display Elements:
 
 ![Screenshot](documentation/img/TopRight.png)
 
-- `CurrentTempEmoji`: (Text) Emoji icon for the current condition.
+- `CurrentTempEmoji`: (Text) (DEFAULT: Disabled) Emoji icon for the current condition.
+- `CurrentTempIcon`: (Text) Icon for the current condition
 - `CurrentTemp`, `FeelsLike`, `TempHigh`, `TempLow`: Current and forecasted temperatures.
 
 Individual Elements:
 
 ![Screenshot](documentation/img/Squares.png)
 
-- `WindIndicator`: Circular widget showing wind speed, gust, direction, and **now includes faded arrows** for prior wind directions (`HistoryArrows` configurable).
+- `WindIndicator`: Circular widget showing wind speed, gust, direction, and and faded arrows for prior wind directions (`HistoryArrows` configurable).
 - `HumiditySquare`: Displays current humidity in a visual square with emoji and percentage label.
 - `RainSquare`: Shows current rain level visually, adjusting units based on precipitation setting.
 
@@ -277,7 +297,7 @@ Individual Elements:
 
 - `TemperatureGraph`: A smoothed temperature graph showing historical temps over the last 24 hours, connecting missing data gaps and colorizing based on value.
 
-> ⚠️ There is a known bug with the Observed WUnderground Temperature data. For some reason, it caches the History data improperly, and so when you query from Python, it is old data. I've let the WUnderground team know about this improper caching issue.
+> ⚠️ There is a known bug with the Observed WUnderground Temperature data. For some reason, it caches the History data improperly, and so when you query from Python, it is old data. I've let the WUnderground team know about this improper caching issue. Please note that the WUnderground History is only queried __once__ per startup to gather the last 24 hours of data. After that, the History Data is cached from calls to Current.
 
 **NOTE:** Updating the weatherscreen.config will change the weatherscreen within 5 seconds (usually ~2 seconds).
 
